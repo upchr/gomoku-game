@@ -368,6 +368,83 @@ function handleSurrender(ws) {
   console.log(`Player ${color} surrendered in room ${roomCode}`);
 }
 
+// 悔棋请求
+function handleUndoRequest(ws) {
+  const client = clients.get(ws);
+  if (!client) return;
+  
+  const { roomCode, color } = client;
+  const room = rooms.get(roomCode);
+  
+  if (!room || room.status !== 'playing') return;
+  if (room.moves.length === 0) return;
+  
+  // 通知对手
+  const opponentColor = color === 1 ? 2 : 1;
+  const opponent = room.players[opponentColor - 1];
+  
+  if (opponent && opponent.ws) {
+    send(opponent.ws, {
+      type: 'undo_request',
+      playerName: room.players[color - 1].name
+    });
+  }
+  
+  console.log(`Undo request in room ${roomCode} by player ${color}`);
+}
+
+// 悔棋接受
+function handleUndoAccept(ws) {
+  const client = clients.get(ws);
+  if (!client) return;
+  
+  const { roomCode, color } = client;
+  const room = rooms.get(roomCode);
+  
+  if (!room || room.status !== 'playing') return;
+  if (room.moves.length === 0) return;
+  
+  // 撤销最后一步
+  const lastMove = room.moves.pop();
+  room.board[lastMove.row][lastMove.col] = 0;
+  room.players[lastMove.player - 1].moves--;
+  room.currentPlayer = lastMove.player;
+  
+  // 通知请求者
+  const requesterColor = color === 1 ? 2 : 1;
+  const requester = room.players[requesterColor - 1];
+  
+  if (requester && requester.ws) {
+    send(requester.ws, { type: 'undo_accepted' });
+  }
+  
+  // 也通知接受者
+  send(ws, { type: 'undo_accepted' });
+  
+  console.log(`Undo accepted in room ${roomCode}`);
+}
+
+// 悔棋拒绝
+function handleUndoReject(ws) {
+  const client = clients.get(ws);
+  if (!client) return;
+  
+  const { roomCode, color } = client;
+  const room = rooms.get(roomCode);
+  
+  if (!room) return;
+  
+  // 通知请求者
+  const requesterColor = color === 1 ? 2 : 1;
+  const requester = room.players[requesterColor - 1];
+  
+  if (requester && requester.ws) {
+    send(requester.ws, { type: 'undo_rejected' });
+  }
+  
+  console.log(`Undo rejected in room ${roomCode}`);
+}
+
 // 离开房间
 function handleLeave(ws) {
   const client = clients.get(ws);
@@ -427,6 +504,18 @@ wss.on('connection', (ws) => {
           
         case 'surrender':
           handleSurrender(ws);
+          break;
+          
+        case 'undo_request':
+          handleUndoRequest(ws);
+          break;
+          
+        case 'undo_accept':
+          handleUndoAccept(ws);
+          break;
+          
+        case 'undo_reject':
+          handleUndoReject(ws);
           break;
           
         default:
