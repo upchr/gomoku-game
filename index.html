@@ -117,64 +117,45 @@
         
         .board {
             background: #d4a574;
-            padding: 0;
-            border-radius: 6px;
+            border-radius: 4px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
             position: relative;
         }
         
+        /* Canvas网格线 */
+        .grid-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
         .board-grid { 
+            position: absolute;
+            top: 0;
+            left: 0;
             display: grid; 
-            gap: 0; 
-            position: relative;
-            /* 边距 = 半个格子 */
-            padding: 13px;
+            gap: 0;
+            z-index: 1;
         }
         
         .cell { 
-            width: 28px; 
-            height: 28px; 
+            width: 24px;
+            height: 24px;
             position: relative; 
             cursor: pointer; 
             background: transparent;
         }
         
-        /* 棋盘线条 - 使用伪元素绘制 */
-        .cell::before, .cell::after {
-            content: '';
-            position: absolute;
-            background: #8b6914;
-            pointer-events: none;
-        }
-        
-        /* 垂直线 */
-        .cell::before {
-            width: 1px;
-            height: 100%;
-            left: 50%;
-            top: 0;
-        }
-        
-        /* 水平线 */
-        .cell::after {
-            width: 100%;
-            height: 1px;
-            left: 0;
-            top: 50%;
-        }
-        
-        /* 边缘格子 - 缩短线条 */
-        .cell.edge-top::before { height: 50%; top: 50%; }
-        .cell.edge-bottom::before { height: 50%; }
-        .cell.edge-left::after { width: 50%; left: 50%; }
-        .cell.edge-right::after { width: 50%; }
-        
         /* 预览标记 */
         .cell.preview::after {
             content: '';
             position: absolute;
-            width: 22px; height: 22px;
-            top: 50%; left: 50%;
+            width: 18px;
+            height: 18px;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
             border: 2px dashed rgba(231, 76, 60, 0.8);
             border-radius: 50%;
@@ -184,8 +165,10 @@
         
         .cell.preview .preview-cross {
             position: absolute;
-            width: 100%; height: 100%;
-            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
             z-index: 7;
         }
         
@@ -197,22 +180,28 @@
         }
         
         .cell.preview .preview-cross::before {
-            width: 12px; height: 2px;
-            top: 50%; left: 50%;
+            width: 10px;
+            height: 2px;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
         }
         
         .cell.preview .preview-cross::after {
-            width: 2px; height: 12px;
-            top: 50%; left: 50%;
+            width: 2px;
+            height: 10px;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
         }
         
         .piece {
             position: absolute;
-            width: 24px; height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            top: 50%; left: 50%;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
             transition: all 0.15s ease;
@@ -220,7 +209,7 @@
         
         .piece.black { background: radial-gradient(circle at 30% 30%, #555, #000); box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
         .piece.white { background: radial-gradient(circle at 30% 30%, #fff, #ccc); box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .piece.last-move::after { content: ''; position: absolute; width: 6px; height: 6px; background: #e74c3c; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .piece.last-move::after { content: ''; position: absolute; width: 5px; height: 5px; background: #e74c3c; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .piece.winning { animation: pulse 0.5s ease infinite alternate; }
         
         @keyframes pulse {
@@ -448,9 +437,9 @@
         }
         
         @media (max-width: 600px) {
-            .cell { width: 22px !important; height: 22px !important; }
-            .piece { width: 18px; height: 18px; }
-            .board-grid { padding: 11px; }
+            .cell { width: 18px !important; height: 18px !important; }
+            .piece { width: 14px; height: 14px; }
+            .cell.preview::after { width: 14px; height: 14px; }
             header h1 { font-size: 1.4em; }
             .players-row { gap: 10px; }
             .player-info { padding: 8px 12px; min-width: 90px; }
@@ -1266,14 +1255,57 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 28;
+            // 移动端使用更小的格子
+            const cellSize = window.innerWidth <= 600 ? 18 : 24;
+            const lineOffset = cellSize / 2;
             
             board.innerHTML = '';
             
-            // 创建格子网格
+            // 棋盘总尺寸 = 交叉点数 × 格子大小
+            const boardSize = size * cellSize;
+            
+            // 设置棋盘背景尺寸（正方形）
+            board.style.width = boardSize + 'px';
+            board.style.height = boardSize + 'px';
+            
+            // 创建Canvas绘制网格线
+            const canvas = document.createElement('canvas');
+            canvas.className = 'grid-canvas';
+            canvas.width = boardSize;
+            canvas.height = boardSize;
+            canvas.style.width = boardSize + 'px';
+            canvas.style.height = boardSize + 'px';
+            
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#8b6914';
+            ctx.lineWidth = 1;
+            
+            // 绘制所有垂直线（从第一个交叉点到最后一个交叉点）
+            for (let i = 0; i < size; i++) {
+                const x = lineOffset + i * cellSize;
+                ctx.beginPath();
+                ctx.moveTo(x, lineOffset);              // 从第一个交叉点
+                ctx.lineTo(x, boardSize - lineOffset);   // 到最后一个交叉点
+                ctx.stroke();
+            }
+            
+            // 绘制所有水平线
+            for (let i = 0; i < size; i++) {
+                const y = lineOffset + i * cellSize;
+                ctx.beginPath();
+                ctx.moveTo(lineOffset, y);               // 从第一个交叉点
+                ctx.lineTo(boardSize - lineOffset, y);   // 到最后一个交叉点
+                ctx.stroke();
+            }
+            
+            board.appendChild(canvas);
+            
+            // 创建格子网格（用于点击和放置棋子）
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
+            grid.style.width = boardSize + 'px';
+            grid.style.height = boardSize + 'px';
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
@@ -1283,13 +1315,6 @@
                     cell.style.height = cellSize + 'px';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
-                    
-                    // 标记边缘格子
-                    if (i === 0) cell.classList.add('edge-top');
-                    if (i === size - 1) cell.classList.add('edge-bottom');
-                    if (j === 0) cell.classList.add('edge-left');
-                    if (j === size - 1) cell.classList.add('edge-right');
-                    
                     cell.addEventListener('click', () => handleCellClick(i, j));
                     grid.appendChild(cell);
                 }
