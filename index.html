@@ -130,14 +130,15 @@
         }
         
         .cell { 
-            width: 26px; 
-            height: 26px; 
+            /* 格子大小 = 线条间距 */
+            width: 24px; 
+            height: 24px; 
             position: relative; 
             cursor: pointer; 
             background: transparent;
         }
         
-        /* 使用SVG绘制精确网格线 */
+        /* SVG网格线 */
         .grid-lines {
             position: absolute;
             top: 0;
@@ -425,8 +426,9 @@
         }
         
         @media (max-width: 600px) {
-            .cell { width: 20px !important; height: 20px !important; }
-            .piece { width: 16px; height: 16px; }
+            .cell { width: 18px !important; height: 18px !important; }
+            .piece { width: 14px; height: 14px; }
+            .cell.preview::after { width: 12px; height: 12px; }
             header h1 { font-size: 1.4em; }
             .players-row { gap: 10px; }
             .player-info { padding: 8px 12px; min-width: 90px; }
@@ -1242,26 +1244,24 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 26;
-            const lineOffset = cellSize / 2; // 线条距离边缘的偏移 = 半个格子
+            const cellSize = 24; // 格子大小 = 线条间距
+            const lineOffset = cellSize / 2; // 线条距离边缘 = 半个格子
             
             board.innerHTML = '';
             
-            // 棋盘总尺寸
-            const boardWidth = size * cellSize;
-            const boardHeight = size * cellSize;
+            // 棋盘总尺寸（确保正方形）
+            const boardSize = size * cellSize;
             
             // 创建SVG网格线
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('class', 'grid-lines');
-            svg.setAttribute('width', boardWidth);
-            svg.setAttribute('height', boardHeight);
-            svg.style.width = boardWidth + 'px';
-            svg.style.height = boardHeight + 'px';
+            svg.setAttribute('width', boardSize);
+            svg.setAttribute('height', boardSize);
+            svg.style.width = boardSize + 'px';
+            svg.style.height = boardSize + 'px';
             
             // 绘制网格线
             const lineColor = '#8b6914';
-            const lineWidth = 1;
             
             for (let i = 0; i < size; i++) {
                 const pos = lineOffset + i * cellSize;
@@ -1271,19 +1271,19 @@
                 vLine.setAttribute('x1', pos);
                 vLine.setAttribute('y1', lineOffset);
                 vLine.setAttribute('x2', pos);
-                vLine.setAttribute('y2', boardHeight - lineOffset);
+                vLine.setAttribute('y2', boardSize - lineOffset);
                 vLine.setAttribute('stroke', lineColor);
-                vLine.setAttribute('stroke-width', lineWidth);
+                vLine.setAttribute('stroke-width', '1');
                 svg.appendChild(vLine);
                 
                 // 水平线
                 const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 hLine.setAttribute('x1', lineOffset);
                 hLine.setAttribute('y1', pos);
-                hLine.setAttribute('x2', boardWidth - lineOffset);
+                hLine.setAttribute('x2', boardSize - lineOffset);
                 hLine.setAttribute('y2', pos);
                 hLine.setAttribute('stroke', lineColor);
-                hLine.setAttribute('stroke-width', lineWidth);
+                hLine.setAttribute('stroke-width', '1');
                 svg.appendChild(hLine);
             }
             
