@@ -116,23 +116,29 @@
         .board-container { display: flex; justify-content: center; margin: 10px 0; }
         
         .board {
+            position: relative;
+            /* 使用CSS变量控制尺寸 */
+            --cell-size: 24px;
+            --board-size: calc(var(--cell-size) * 15);
+            width: var(--board-size);
+            height: var(--board-size);
             background: #d4a574;
-            padding: 0;
             border-radius: 6px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            position: relative;
         }
         
         .board-grid { 
+            position: absolute;
+            top: 0;
+            left: 0;
             display: grid; 
-            gap: 0; 
-            position: relative;
+            gap: 0;
+            z-index: 1;
         }
         
         .cell { 
-            /* 格子大小 = 线条间距 */
-            width: 24px; 
-            height: 24px; 
+            width: var(--cell-size);
+            height: var(--cell-size);
             position: relative; 
             cursor: pointer; 
             background: transparent;
@@ -426,7 +432,9 @@
         }
         
         @media (max-width: 600px) {
-            .cell { width: 18px !important; height: 18px !important; }
+            .board {
+                --cell-size: 18px;
+            }
             .piece { width: 14px; height: 14px; }
             .cell.preview::after { width: 12px; height: 12px; }
             header h1 { font-size: 1.4em; }
@@ -1244,12 +1252,15 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 24; // 格子大小 = 线条间距
-            const lineOffset = cellSize / 2; // 线条距离边缘 = 半个格子
+            const cellSize = 24;
+            const lineOffset = cellSize / 2;
             
             board.innerHTML = '';
             
-            // 棋盘总尺寸（确保正方形）
+            // 设置棋盘CSS变量（确保正方形）
+            board.style.setProperty('--cell-size', cellSize + 'px');
+            board.style.setProperty('--board-size', (size * cellSize) + 'px');
+            
             const boardSize = size * cellSize;
             
             // 创建SVG网格线
@@ -1289,19 +1300,17 @@
             
             board.appendChild(svg);
             
-            // 创建格子网格
+            // 创建格子网格（绝对定位，从0,0开始）
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
-            grid.style.position = 'relative';
-            grid.style.zIndex = '1';
+            grid.style.width = boardSize + 'px';
+            grid.style.height = boardSize + 'px';
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.style.width = cellSize + 'px';
-                    cell.style.height = cellSize + 'px';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
                     cell.addEventListener('click', () => handleCellClick(i, j));
