@@ -127,47 +127,24 @@
             display: grid; 
             gap: 0; 
             position: relative;
-            /* 边距 = 半个格子 */
-            padding: 13px;
         }
         
         .cell { 
-            width: 28px; 
-            height: 28px; 
+            width: 26px; 
+            height: 26px; 
             position: relative; 
             cursor: pointer; 
             background: transparent;
         }
         
-        /* 棋盘线条 - 使用伪元素绘制 */
-        .cell::before, .cell::after {
-            content: '';
+        /* 使用SVG绘制精确网格线 */
+        .grid-lines {
             position: absolute;
-            background: #8b6914;
-            pointer-events: none;
-        }
-        
-        /* 垂直线 */
-        .cell::before {
-            width: 1px;
-            height: 100%;
-            left: 50%;
             top: 0;
-        }
-        
-        /* 水平线 */
-        .cell::after {
-            width: 100%;
-            height: 1px;
             left: 0;
-            top: 50%;
+            pointer-events: none;
+            z-index: 0;
         }
-        
-        /* 边缘格子 - 缩短线条 */
-        .cell.edge-top::before { height: 50%; top: 50%; }
-        .cell.edge-bottom::before { height: 50%; }
-        .cell.edge-left::after { width: 50%; left: 50%; }
-        .cell.edge-right::after { width: 50%; }
         
         /* 预览标记 */
         .cell.preview::after {
@@ -448,9 +425,8 @@
         }
         
         @media (max-width: 600px) {
-            .cell { width: 22px !important; height: 22px !important; }
-            .piece { width: 18px; height: 18px; }
-            .board-grid { padding: 11px; }
+            .cell { width: 20px !important; height: 20px !important; }
+            .piece { width: 16px; height: 16px; }
             header h1 { font-size: 1.4em; }
             .players-row { gap: 10px; }
             .player-info { padding: 8px 12px; min-width: 90px; }
@@ -1266,14 +1242,59 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 28;
+            const cellSize = 26;
+            const lineOffset = cellSize / 2; // 线条距离边缘的偏移 = 半个格子
             
             board.innerHTML = '';
+            
+            // 棋盘总尺寸
+            const boardWidth = size * cellSize;
+            const boardHeight = size * cellSize;
+            
+            // 创建SVG网格线
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'grid-lines');
+            svg.setAttribute('width', boardWidth);
+            svg.setAttribute('height', boardHeight);
+            svg.style.width = boardWidth + 'px';
+            svg.style.height = boardHeight + 'px';
+            
+            // 绘制网格线
+            const lineColor = '#8b6914';
+            const lineWidth = 1;
+            
+            for (let i = 0; i < size; i++) {
+                const pos = lineOffset + i * cellSize;
+                
+                // 垂直线
+                const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vLine.setAttribute('x1', pos);
+                vLine.setAttribute('y1', lineOffset);
+                vLine.setAttribute('x2', pos);
+                vLine.setAttribute('y2', boardHeight - lineOffset);
+                vLine.setAttribute('stroke', lineColor);
+                vLine.setAttribute('stroke-width', lineWidth);
+                svg.appendChild(vLine);
+                
+                // 水平线
+                const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                hLine.setAttribute('x1', lineOffset);
+                hLine.setAttribute('y1', pos);
+                hLine.setAttribute('x2', boardWidth - lineOffset);
+                hLine.setAttribute('y2', pos);
+                hLine.setAttribute('stroke', lineColor);
+                hLine.setAttribute('stroke-width', lineWidth);
+                svg.appendChild(hLine);
+            }
+            
+            board.appendChild(svg);
             
             // 创建格子网格
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
+            grid.style.position = 'relative';
+            grid.style.zIndex = '1';
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
@@ -1283,13 +1304,6 @@
                     cell.style.height = cellSize + 'px';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
-                    
-                    // 标记边缘格子
-                    if (i === 0) cell.classList.add('edge-top');
-                    if (i === size - 1) cell.classList.add('edge-bottom');
-                    if (j === 0) cell.classList.add('edge-left');
-                    if (j === size - 1) cell.classList.add('edge-right');
-                    
                     cell.addEventListener('click', () => handleCellClick(i, j));
                     grid.appendChild(cell);
                 }
