@@ -461,6 +461,13 @@ wss.on('connection', (ws) => {
         case 'leave_room': handleLeaveRoom(ws); break;
         case 'quick_msg': handleQuickMsg(ws, data); break;
         case 'emoji': handleEmoji(ws, data); break;
+        
+        // 台球游戏
+        case 'create_pool_room': handleCreatePoolRoom(ws, data); break;
+        case 'join_pool_room': handleJoinPoolRoom(ws, data); break;
+        case 'pool_shot': handlePoolShot(ws, data); break;
+        case 'leave_pool_room': handleLeavePoolRoom(ws, data); break;
+        
         default: send(ws, { type: 'error', message: '未知消息类型' });
       }
     } catch (err) {
@@ -490,7 +497,117 @@ setInterval(() => {
 // 清理过期房间
 setInterval(cleanupExpiredRooms, 60000);
 
-// 启动服务器
+// ==================== 台球游戏 ====================
+const poolRooms = new Map();
+
+function handleCreatePoolRoom(ws, data) {
+  const { playerName } = data;
+  let roomCode;
+  do { roomCode = generateRoomCode(); } while (rooms.has(roomCode) || poolRooms.has(roomCode));
+  
+  const userId = generateUserId();
+  
+  const room = {
+    code: roomCode,
+    status: 'waiting',
+    createdAt: Date.now(),
+    players: [{
+      id: userId,
+      name: playerName || '玩家',
+      color: 1,
+      ws: ws
+    }, null]
+  };
+  
+  poolRooms.set(roomCode, room);
+  clients.set(ws, { userId, roomCode, color: 1, gameType: 'pool' });
+  
+  send(ws, {
+    type: 'pool_room_created',
+    roomCode,
+    userId,
+    color: 1
+  });
+  
+  console.log(`台球房间 ${roomCode} 已创建，创建者: ${playerName}`);
+}
+
+function handleJoinPoolRoom(ws, data) {
+  const { roomCode, playerName } = data;
+  const room = poolRooms.get(roomCode);
+  
+  if (!room) { send(ws, { type: 'error', message: '房间不存在' }); return; }
+  if (room.status !== 'waiting') { send(ws, { type: 'error', message: '房间已开始' }); return; }
+  
+  const userId = generateUserId();
+  
+  room.players[1] = {
+    id: userId,
+    name: playerName || '玩家',
+    color: 2,
+    ws: ws
+  };
+  room.status = 'playing';
+  
+  clients.set(ws, { userId, roomCode, color: 2, gameType: 'pool' });
+  
+  send(ws, {
+    type: 'pool_room_joined',
+    roomCode,
+    userId,
+    color: 2,
+    opponent: room.players[0]
+  });
+  
+  if (room.players[0] && room.players[0].ws) {
+    send(room.players[0].ws, { 
+      type: 'pool_opponent_joined',
+      opponent: room.players[1]
+    });
+  }
+  
+  console.log(`玩家 ${playerName} 加入台球房间 ${roomCode}`);
+}
+
+function handlePoolShot(ws, data) {
+  const client = clients.get(ws);
+  if (!client || !client.roomCode) return;
+  
+  const room = poolRooms.get(client.roomCode);
+  if (!room) return;
+  
+  // 广播给对手
+  const opponentColor = client.color === 1 ? 2 : 1;
+  const opponent = room.players[opponentColor - 1];
+  
+  if (opponent && opponent.ws) {
+    send(opponent.ws, {
+      type: 'pool_shot',
+      vx: data.vx,
+      vy: data.vy
+    });
+  }
+}
+
+function handleLeavePoolRoom(ws, data) {
+  const client = clients.get(ws);
+  if (!client || !client.roomCode) return;
+  
+  const room = poolRooms.get(client.roomCode);
+  if (room) {
+    // 通知对手
+    const opponentColor = client.color === 1 ? 2 : 1;
+    const opponent = room.players[opponentColor - 1];
+    if (opponent && opponent.ws) {
+      send(opponent.ws, { type: 'error', message: '对手已离开' });
+    }
+    poolRooms.delete(client.roomCode);
+  }
+  
+  clients.delete(ws);
+}
+
+// ==================== 启动服务器 ====================
 server.listen(PORT, () => {
   console.log(`Gomoku WebSocket Server running on port ${PORT}`);
 });
