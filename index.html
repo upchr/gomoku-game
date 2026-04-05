@@ -117,15 +117,10 @@
         
         .board {
             position: relative;
-            /* 使用CSS变量控制尺寸 */
-            --cell-size: 24px;
-            --board-size: calc(var(--cell-size) * var(--board-cells, 15));
-            width: var(--board-size);
-            height: var(--board-size);
             background: #d4a574;
             border-radius: 4px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            overflow: hidden; /* 裁切超出内容 */
+            /* 尺寸由JS动态设置 */
         }
         
         .board-grid { 
@@ -138,8 +133,8 @@
         }
         
         .cell { 
-            width: var(--cell-size);
-            height: var(--cell-size);
+            width: 24px;
+            height: 24px;
             position: relative; 
             cursor: pointer; 
             background: transparent;
@@ -152,7 +147,6 @@
             left: 0;
             pointer-events: none;
             z-index: 0;
-            overflow: hidden;
         }
         
         /* 预览标记 */
@@ -434,9 +428,7 @@
         }
         
         @media (max-width: 600px) {
-            .board {
-                --cell-size: 18px;
-            }
+            .cell { width: 18px !important; height: 18px !important; }
             .piece { width: 14px; height: 14px; }
             .cell.preview::after { width: 12px; height: 12px; }
             header h1 { font-size: 1.4em; }
@@ -1254,16 +1246,18 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 24;
+            // 移动端使用更小的格子
+            const cellSize = window.innerWidth <= 600 ? 18 : 24;
             const lineOffset = cellSize / 2;
             
             board.innerHTML = '';
             
-            // 设置棋盘CSS变量
-            board.style.setProperty('--cell-size', cellSize + 'px');
-            board.style.setProperty('--board-cells', size);
-            
+            // 棋盘总尺寸 = 格子数 × 格子大小
             const boardSize = size * cellSize;
+            
+            // 设置棋盘背景尺寸（确保覆盖网格线）
+            board.style.width = boardSize + 'px';
+            board.style.height = boardSize + 'px';
             
             // 创建SVG网格线（尺寸与棋盘完全一致）
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1280,7 +1274,7 @@
             for (let i = 0; i < size; i++) {
                 const pos = lineOffset + i * cellSize;
                 
-                // 垂直线（确保不超出边界）
+                // 垂直线
                 const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 vLine.setAttribute('x1', pos);
                 vLine.setAttribute('y1', lineOffset);
@@ -1288,10 +1282,9 @@
                 vLine.setAttribute('y2', boardSize - lineOffset);
                 vLine.setAttribute('stroke', lineColor);
                 vLine.setAttribute('stroke-width', '1');
-                vLine.setAttribute('stroke-linecap', 'square');
                 svg.appendChild(vLine);
                 
-                // 水平线（确保不超出边界）
+                // 水平线
                 const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 hLine.setAttribute('x1', lineOffset);
                 hLine.setAttribute('y1', pos);
@@ -1299,13 +1292,12 @@
                 hLine.setAttribute('y2', pos);
                 hLine.setAttribute('stroke', lineColor);
                 hLine.setAttribute('stroke-width', '1');
-                hLine.setAttribute('stroke-linecap', 'square');
                 svg.appendChild(hLine);
             }
             
             board.appendChild(svg);
             
-            // 创建格子网格（尺寸与SVG完全一致）
+            // 创建格子网格（尺寸与棋盘完全一致）
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
@@ -1318,6 +1310,8 @@
                     cell.className = 'cell';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
+                    cell.style.width = cellSize + 'px';
+                    cell.style.height = cellSize + 'px';
                     cell.addEventListener('click', () => handleCellClick(i, j));
                     grid.appendChild(cell);
                 }
