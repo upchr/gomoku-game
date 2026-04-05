@@ -294,9 +294,7 @@ function handlePlacePiece(ws, data) {
       board: room.board
     });
     
-    // 删除房间
-    setTimeout(() => rooms.delete(roomCode), 5000);
-    
+    // 不删除房间，允许再来一局
     console.log(`Game over in room ${roomCode}, winner: ${color}`);
   } else {
     // 切换玩家
@@ -363,8 +361,7 @@ function handleSurrender(ws) {
     surrenderBy: color
   });
   
-  setTimeout(() => rooms.delete(roomCode), 5000);
-  
+  // 不删除房间，允许再来一局
   console.log(`Player ${color} surrendered in room ${roomCode}`);
 }
 
@@ -445,6 +442,67 @@ function handleUndoReject(ws) {
   console.log(`Undo rejected in room ${roomCode}`);
 }
 
+// 再来一局
+function handlePlayAgain(ws) {
+  const client = clients.get(ws);
+  if (!client) return;
+  
+  const { roomCode } = client;
+  const room = rooms.get(roomCode);
+  
+  if (!room) return;
+  
+  // 重置房间状态
+  room.board = [];
+  room.moves = [];
+  room.currentPlayer = 1;
+  room.status = 'playing';
+  
+  // 重置棋盘
+  for (let i = 0; i < room.boardSize; i++) {
+    room.board[i] = [];
+    for (let j = 0; j < room.boardSize; j++) {
+      room.board[i][j] = 0;
+    }
+  }
+  
+  // 重置玩家状态
+  room.players[0].time = room.gameTime;
+  room.players[0].moves = 0;
+  if (room.players[1]) {
+    room.players[1].time = room.gameTime;
+    room.players[1].moves = 0;
+  }
+  
+  // 通知双方
+  broadcastToRoom(roomCode, { type: 'play_again' });
+  
+  console.log(`Play again in room ${roomCode}`);
+}
+
+// 离开房间
+function handleLeaveRoom(ws) {
+  const client = clients.get(ws);
+  if (!client) return;
+  
+  const { roomCode, color } = client;
+  const room = rooms.get(roomCode);
+  
+  if (room) {
+    // 通知对手
+    broadcastToRoom(roomCode, {
+      type: 'opponent_left',
+      message: '对手已离开房间'
+    });
+    
+    // 删除房间
+    rooms.delete(roomCode);
+  }
+  
+  clients.delete(ws);
+  console.log(`Client left room ${roomCode}`);
+}
+
 // 离开房间
 function handleLeave(ws) {
   const client = clients.get(ws);
@@ -516,6 +574,14 @@ wss.on('connection', (ws) => {
           
         case 'undo_reject':
           handleUndoReject(ws);
+          break;
+          
+        case 'play_again':
+          handlePlayAgain(ws);
+          break;
+          
+        case 'leave_room':
+          handleLeaveRoom(ws);
           break;
           
         default:
