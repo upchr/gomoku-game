@@ -123,16 +123,51 @@
             position: relative;
         }
         
-        .board-grid { display: grid; gap: 0; position: relative; z-index: 1; }
-        
-        .cell { width: 28px; height: 28px; position: relative; cursor: pointer; background: transparent; }
-        
-        .board-lines {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            pointer-events: none;
-            z-index: 0;
+        .board-grid { 
+            display: grid; 
+            gap: 0; 
+            position: relative;
+            /* 边距 = 半个格子 */
+            padding: 13px;
         }
+        
+        .cell { 
+            width: 28px; 
+            height: 28px; 
+            position: relative; 
+            cursor: pointer; 
+            background: transparent;
+        }
+        
+        /* 棋盘线条 - 使用伪元素绘制 */
+        .cell::before, .cell::after {
+            content: '';
+            position: absolute;
+            background: #8b6914;
+            pointer-events: none;
+        }
+        
+        /* 垂直线 */
+        .cell::before {
+            width: 1px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+        }
+        
+        /* 水平线 */
+        .cell::after {
+            width: 100%;
+            height: 1px;
+            left: 0;
+            top: 50%;
+        }
+        
+        /* 边缘格子 - 缩短线条 */
+        .cell.edge-top::before { height: 50%; top: 50%; }
+        .cell.edge-bottom::before { height: 50%; }
+        .cell.edge-left::after { width: 50%; left: 50%; }
+        .cell.edge-right::after { width: 50%; }
         
         /* 预览标记 */
         .cell.preview::after {
@@ -415,6 +450,7 @@
         @media (max-width: 600px) {
             .cell { width: 22px !important; height: 22px !important; }
             .piece { width: 18px; height: 18px; }
+            .board-grid { padding: 11px; }
             header h1 { font-size: 1.4em; }
             .players-row { gap: 10px; }
             .player-info { padding: 8px 12px; min-width: 90px; }
@@ -1231,45 +1267,13 @@
             const board = document.getElementById('board');
             const size = GameState.boardSize;
             const cellSize = 28;
-            const padding = 14;
             
             board.innerHTML = '';
             
-            // 创建网格线Canvas
-            const linesCanvas = document.createElement('canvas');
-            linesCanvas.className = 'board-lines';
-            const totalSize = size * cellSize;
-            linesCanvas.width = totalSize;
-            linesCanvas.height = totalSize;
-            linesCanvas.style.width = totalSize + 'px';
-            linesCanvas.style.height = totalSize + 'px';
-            
-            const ctx = linesCanvas.getContext('2d');
-            ctx.strokeStyle = '#8b6914';
-            ctx.lineWidth = 1;
-            
-            for (let i = 0; i < size; i++) {
-                const pos = padding + i * cellSize;
-                
-                ctx.beginPath();
-                ctx.moveTo(pos, padding);
-                ctx.lineTo(pos, totalSize - padding);
-                ctx.stroke();
-                
-                ctx.beginPath();
-                ctx.moveTo(padding, pos);
-                ctx.lineTo(totalSize - padding, pos);
-                ctx.stroke();
-            }
-            
-            board.appendChild(linesCanvas);
-            
-            // 创建格子
+            // 创建格子网格
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
-            grid.style.position = 'relative';
-            grid.style.zIndex = '1';
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
@@ -1279,6 +1283,13 @@
                     cell.style.height = cellSize + 'px';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
+                    
+                    // 标记边缘格子
+                    if (i === 0) cell.classList.add('edge-top');
+                    if (i === size - 1) cell.classList.add('edge-bottom');
+                    if (j === 0) cell.classList.add('edge-left');
+                    if (j === size - 1) cell.classList.add('edge-right');
+                    
                     cell.addEventListener('click', () => handleCellClick(i, j));
                     grid.appendChild(cell);
                 }
