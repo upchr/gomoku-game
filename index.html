@@ -7,16 +7,6 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        :root {
-            --primary: #2c3e50;
-            --secondary: #34495e;
-            --accent: #e74c3c;
-            --board: #d4a574;
-            --board-line: #8b6914;
-            --success: #2ecc71;
-            --warning: #f39c12;
-        }
-        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -28,24 +18,11 @@
             color: #fff;
         }
         
-        .container {
-            max-width: 1200px;
-            width: 100%;
-        }
+        .container { max-width: 1200px; width: 100%; }
         
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        header p {
-            color: #aaa;
-        }
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        header p { color: #aaa; }
         
         .menu-screen {
             background: rgba(255,255,255,0.1);
@@ -65,18 +42,14 @@
             border: none;
             border-radius: 12px;
             cursor: pointer;
-            transition: all 0.3s;
             font-weight: 600;
+            transition: all 0.3s;
         }
         
         .menu-btn.primary { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; }
         .menu-btn.secondary { background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; }
         .menu-btn.tertiary { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
-        
-        .menu-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        }
+        .menu-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         
         .game-screen { display: none; }
         
@@ -98,31 +71,11 @@
             transition: all 0.3s;
         }
         
-        .player-info.active {
-            background: rgba(231, 76, 60, 0.3);
-            border: 2px solid #e74c3c;
-        }
-        
-        .player-info.me {
-            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
-        }
-        
-        .player-info .name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .player-info .time {
-            font-size: 24px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .player-info .pieces {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 5px;
-        }
+        .player-info.active { background: rgba(231, 76, 60, 0.3); border: 2px solid #e74c3c; }
+        .player-info.me { box-shadow: 0 0 15px rgba(46, 204, 113, 0.5); }
+        .player-info .name { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+        .player-info .time { font-size: 24px; font-family: 'Courier New', monospace; }
+        .player-info .pieces { font-size: 12px; color: #aaa; margin-top: 5px; }
         
         .game-status {
             text-align: center;
@@ -131,37 +84,19 @@
             border-radius: 8px;
         }
         
-        .board-container {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-        }
+        .board-container { display: flex; justify-content: center; margin: 20px 0; }
         
         .board {
-            background: var(--board);
+            background: #d4a574;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
         
-        .board-grid {
-            display: grid;
-            gap: 0;
-        }
+        .board-grid { display: grid; gap: 0; }
         
-        .cell {
-            width: 32px;
-            height: 32px;
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .cell::before, .cell::after {
-            content: '';
-            position: absolute;
-            background: var(--board-line);
-        }
-        
+        .cell { width: 32px; height: 32px; position: relative; cursor: pointer; }
+        .cell::before, .cell::after { content: ''; position: absolute; background: #8b6914; }
         .cell::before { width: 1px; height: 100%; left: 50%; top: 0; }
         .cell::after { width: 100%; height: 1px; left: 0; top: 50%; }
         
@@ -176,49 +111,16 @@
             z-index: 10;
         }
         
-        .piece.black {
-            background: radial-gradient(circle at 30% 30%, #555, #000);
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-        }
+        .piece.black { background: radial-gradient(circle at 30% 30%, #555, #000); box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+        .piece.white { background: radial-gradient(circle at 30% 30%, #fff, #ccc); box-shadow: 2px 2px 5px rgba(0,0,0,0.3); }
+        .piece.last-move::after { content: ''; position: absolute; width: 8px; height: 8px; background: #e74c3c; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         
-        .piece.white {
-            background: radial-gradient(circle at 30% 30%, #fff, #ccc);
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-        }
+        .controls { display: flex; justify-content: center; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
         
-        .piece.last-move::after {
-            content: '';
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #e74c3c;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        .controls {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        
+        .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
         .btn-primary { background: #3498db; color: #fff; }
         .btn-danger { background: #e74c3c; color: #fff; }
         .btn-success { background: #2ecc71; color: #fff; }
-        
         .btn:hover { opacity: 0.9; transform: translateY(-2px); }
         
         .modal-panel {
@@ -229,24 +131,14 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
-            overflow-y: auto;
             padding: 20px;
         }
         
-        .modal-content {
-            background: #2c3e50;
-            padding: 30px;
-            border-radius: 15px;
-            max-width: 500px;
-            width: 100%;
-        }
-        
+        .modal-content { background: #2c3e50; padding: 30px; border-radius: 15px; max-width: 500px; width: 100%; }
         .modal-content h2 { margin-bottom: 20px; text-align: center; }
         
         .form-group { margin-bottom: 20px; }
-        
         .form-group label { display: block; margin-bottom: 8px; color: #aaa; }
-        
         .form-group input, .form-group select {
             width: 100%;
             padding: 12px;
@@ -257,17 +149,7 @@
             font-size: 16px;
         }
         
-        .form-group input:focus, .form-group select:focus {
-            border-color: #3498db;
-            outline: none;
-        }
-        
-        .room-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin: 20px 0;
-        }
-        
+        .room-list { max-height: 300px; overflow-y: auto; margin: 20px 0; }
         .room-item {
             background: rgba(255,255,255,0.05);
             padding: 15px;
@@ -278,79 +160,28 @@
             align-items: center;
             cursor: pointer;
         }
-        
         .room-item:hover { background: rgba(255,255,255,0.1); }
-        
         .room-item .code { font-size: 18px; font-weight: 600; color: #3498db; }
         .room-item .host { font-size: 14px; color: #aaa; }
-        
-        .room-item .status {
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-        }
-        
+        .room-item .status { padding: 5px 10px; border-radius: 20px; font-size: 12px; }
         .room-item .status.waiting { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
         .room-item .status.locked { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
         
-        .history-panel {
-            display: none;
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
+        .history-panel { display: none; background: rgba(255,255,255,0.1); border-radius: 15px; padding: 20px; margin-top: 20px; max-height: 300px; overflow-y: auto; }
         
-        .room-code-display {
-            font-size: 36px;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 8px;
-            color: #2ecc71;
-            margin: 10px 0;
-            text-align: center;
-        }
+        .room-code-display { font-size: 36px; font-family: 'Courier New', monospace; letter-spacing: 8px; color: #2ecc71; margin: 10px 0; text-align: center; }
         
-        .online-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-        
+        .online-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
         .online-indicator.connected { background: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
         .online-indicator.disconnected { background: #e74c3c; }
         
-        .waiting-dots span {
-            animation: blink 1.4s infinite;
-        }
+        .waiting-dots span { animation: blink 1.4s infinite; }
         .waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
         .waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
         
-        @keyframes blink {
-            0%, 80%, 100% { opacity: 0; }
-            40% { opacity: 1; }
-        }
-        
-        .win-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.9);
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .win-content {
-            background: linear-gradient(135deg, #2c3e50, #34495e);
-            padding: 50px;
-            border-radius: 20px;
-            text-align: center;
-        }
-        
+        .win-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+        .win-content { background: linear-gradient(135deg, #2c3e50, #34495e); padding: 50px; border-radius: 20px; text-align: center; }
         .win-content .winner-name { color: #2ecc71; font-size: 28px; margin: 20px 0; }
         
         @media (max-width: 600px) {
@@ -432,6 +263,8 @@
                     <option value="180">3分钟</option>
                     <option value="300" selected>5分钟</option>
                     <option value="600">10分钟</option>
+                    <option value="900">15分钟</option>
+                    <option value="1800">30分钟</option>
                 </select>
             </div>
             <div class="form-group">
@@ -440,6 +273,8 @@
                     <option value="13">13×13</option>
                     <option value="15" selected>15×15</option>
                     <option value="19">19×19</option>
+                    <option value="21">21×21</option>
+                    <option value="25">25×25</option>
                 </select>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -490,6 +325,7 @@
                     <option value="0">不限时</option>
                     <option value="300" selected>5分钟</option>
                     <option value="600">10分钟</option>
+                    <option value="900">15分钟</option>
                 </select>
             </div>
             <div class="form-group">
@@ -497,6 +333,8 @@
                 <select id="onlineBoardSize">
                     <option value="13">13×13</option>
                     <option value="15" selected>15×15</option>
+                    <option value="19">19×19</option>
+                    <option value="21">21×21</option>
                 </select>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -514,10 +352,12 @@
             <div id="roomPasswordHint" style="text-align: center; color: #f39c12; display: none;">
                 🔒 密码: <span id="displayRoomPassword"></span>
             </div>
-            <p style="text-align: center; color: #888; margin-top: 20px;">
-                分享房间码给好友
+            <p style="text-align: center; color: #aaa; margin-top: 20px;">
+                分享房间码给好友，或复制链接：<br>
+                <span id="roomLink" style="font-size: 12px; color: #888;"></span>
             </p>
-            <p style="text-align: center; color: #aaa;">
+            <button class="btn btn-primary" style="width:100%; margin-top: 15px;" onclick="copyRoomLink()">📋 复制链接</button>
+            <p style="text-align: center; color: #aaa; margin-top: 20px;">
                 等待对手加入<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
             </p>
             <button class="btn btn-danger" style="width:100%; margin-top: 20px;" onclick="cancelWaiting()">取消</button>
@@ -548,8 +388,7 @@
             <h2>🎉 游戏结束</h2>
             <div class="winner-name" id="winnerName">黑方 获胜!</div>
             <div style="margin-bottom: 20px; color: #aaa;">
-                用时: <span id="totalTime">0</span> 秒 | 
-                总步数: <span id="totalMoves">0</span> 步
+                用时: <span id="totalTime">0</span> 秒 | 总步数: <span id="totalMoves">0</span> 步
             </div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-primary" onclick="backToMenu()">返回菜单</button>
@@ -558,22 +397,19 @@
     </div>
 
     <script>
-        // ==================== WebSocket 配置 ====================
-        // Railway 部署地址
+        // ==================== 配置 ====================
         const WS_SERVER = 'wss://gomoku-server-production-722d.up.railway.app';
         
         let ws = null;
         let wsConnected = false;
+        let reconnectTimer = null;
         
         // ==================== 游戏状态 ====================
         const GameState = {
             board: [],
             boardSize: 15,
             currentPlayer: 1,
-            players: {
-                1: { name: '黑方', time: 300, moves: 0 },
-                2: { name: '白方', time: 300, moves: 0 }
-            },
+            players: { 1: { name: '黑方', time: 300, moves: 0 }, 2: { name: '白方', time: 300, moves: 0 } },
             gameTime: 300,
             gameMode: 'local',
             isPlaying: false,
@@ -596,10 +432,11 @@
             if (room) {
                 document.getElementById('manualRoomCode').value = room;
                 showOnlinePanel();
+                refreshRoomList();
             }
         });
         
-        // ==================== WebSocket 连接 ====================
+        // ==================== WebSocket ====================
         function connectWebSocket() {
             return new Promise((resolve, reject) => {
                 if (ws && ws.readyState === WebSocket.OPEN) {
@@ -608,6 +445,7 @@
                 }
                 
                 try {
+                    console.log('Connecting to', WS_SERVER);
                     ws = new WebSocket(WS_SERVER);
                     
                     ws.onopen = () => {
@@ -631,15 +469,16 @@
                     };
                     
                     ws.onmessage = (event) => {
-                        handleServerMessage(JSON.parse(event.data));
+                        const data = JSON.parse(event.data);
+                        console.log('Received:', data.type, data);
+                        handleServerMessage(data);
                     };
                     
-                    // 超时
                     setTimeout(() => {
                         if (!wsConnected) {
                             reject(new Error('Connection timeout'));
                         }
-                    }, 5000);
+                    }, 10000);
                     
                 } catch (err) {
                     reject(err);
@@ -657,71 +496,48 @@
         
         function sendToServer(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('Sending:', data.type, data);
                 ws.send(JSON.stringify(data));
             } else {
-                alert('未连接到服务器');
+                alert('未连接到服务器，请刷新页面重试');
             }
         }
         
         function handleServerMessage(data) {
-            console.log('Server message:', data);
-            
             switch (data.type) {
                 case 'room_created':
                     handleRoomCreated(data);
                     break;
-                    
                 case 'room_joined':
                     handleRoomJoined(data);
                     break;
-                    
                 case 'opponent_joined':
                     handleOpponentJoined(data);
                     break;
-                    
                 case 'room_list':
                     handleRoomList(data);
                     break;
-                    
                 case 'piece_placed':
                     handlePiecePlaced(data);
                     break;
-                    
                 case 'game_over':
                     handleGameOver(data);
                     break;
-                    
                 case 'opponent_left':
                     handleOpponentLeft(data);
                     break;
-                    
                 case 'error':
-                    alert(data.message);
+                    alert('错误: ' + data.message);
                     break;
             }
         }
         
         // ==================== 界面控制 ====================
-        function showPanel(panelId) {
-            document.getElementById(panelId).style.display = 'flex';
-        }
-        
-        function closePanel(panelId) {
-            document.getElementById(panelId).style.display = 'none';
-        }
-        
-        function showLocalSetup() {
-            showPanel('localSetupPanel');
-        }
-        
-        function showOnlinePanel() {
-            showPanel('onlinePanel');
-        }
-        
-        function showCreateRoom() {
-            closePanel('onlinePanel');
-            showPanel('createRoomPanel');
-        }
+        function showPanel(panelId) { document.getElementById(panelId).style.display = 'flex'; }
+        function closePanel(panelId) { document.getElementById(panelId).style.display = 'none'; }
+        function showLocalSetup() { showPanel('localSetupPanel'); }
+        function showOnlinePanel() { showPanel('onlinePanel'); }
+        function showCreateRoom() { closePanel('onlinePanel'); showPanel('createRoomPanel'); }
         
         function showHistory() {
             const panel = document.getElementById('historyPanel');
@@ -732,12 +548,7 @@
         function backToMenu() {
             stopTimer();
             GameState.isPlaying = false;
-            
-            if (ws) {
-                ws.close();
-                ws = null;
-            }
-            
+            if (ws) { ws.close(); ws = null; }
             document.getElementById('gameScreen').style.display = 'none';
             document.getElementById('menuScreen').style.display = 'block';
             document.getElementById('winModal').style.display = 'none';
@@ -750,7 +561,6 @@
             const player2 = document.getElementById('localPlayer2').value || '玩家2';
             const time = parseInt(document.getElementById('gameTime').value);
             const size = parseInt(document.getElementById('boardSize').value);
-            
             initGame('local', { player1, player2, time, size });
             closePanel('localSetupPanel');
         }
@@ -764,13 +574,12 @@
                 await connectWebSocket();
                 sendToServer({ type: 'get_room_list' });
             } catch (err) {
-                document.getElementById('roomList').innerHTML = '<p style="text-align: center; color: #e74c3c;">连接服务器失败，请检查网络</p>';
+                document.getElementById('roomList').innerHTML = '<p style="text-align: center; color: #e74c3c;">连接服务器失败: ' + err.message + '</p>';
             }
         }
         
         function handleRoomList(data) {
             const listEl = document.getElementById('roomList');
-            
             if (!data.rooms || data.rooms.length === 0) {
                 listEl.innerHTML = '<p style="text-align: center; color: #888;">暂无可用房间，创建一个吧！</p>';
                 return;
@@ -778,20 +587,14 @@
             
             listEl.innerHTML = data.rooms.map(room => `
                 <div class="room-item" onclick="selectRoom('${room.code}', ${room.hasPassword})">
-                    <div>
-                        <div class="code">${room.code}</div>
-                        <div class="host">房主: ${room.hostName}</div>
-                    </div>
-                    <div class="status ${room.hasPassword ? 'locked' : 'waiting'}">
-                        ${room.hasPassword ? '🔒 加密' : '🟢 等待中'}
-                    </div>
+                    <div><div class="code">${room.code}</div><div class="host">房主: ${room.hostName}</div></div>
+                    <div class="status ${room.hasPassword ? 'locked' : 'waiting'}">${room.hasPassword ? '🔒 加密' : '🟢 等待中'}</div>
                 </div>
             `).join('');
         }
         
         function selectRoom(code, hasPassword) {
             GameState.pendingRoomCode = code;
-            
             if (hasPassword) {
                 document.getElementById('passwordRoomCode').textContent = code;
                 showPanel('passwordPanel');
@@ -802,10 +605,7 @@
         
         async function joinRoomByCode() {
             const code = document.getElementById('manualRoomCode').value.toUpperCase().trim();
-            if (code.length !== 6) {
-                alert('请输入6位房间码');
-                return;
-            }
+            if (code.length !== 6) { alert('请输入6位房间码'); return; }
             
             try {
                 await connectWebSocket();
@@ -822,14 +622,8 @@
         
         async function submitPassword() {
             const password = document.getElementById('joinRoomPassword').value;
-            const code = GameState.pendingRoomCode;
-            
-            if (!password) {
-                alert('请输入密码');
-                return;
-            }
-            
-            await joinRoom(code, password);
+            if (!password) { alert('请输入密码'); return; }
+            await joinRoom(GameState.pendingRoomCode, password);
         }
         
         async function joinRoom(code, password) {
@@ -854,8 +648,9 @@
             
             try {
                 await connectWebSocket();
-                
                 GameState.myName = nickname;
+                GameState.gameTime = time;
+                GameState.boardSize = size;
                 
                 sendToServer({
                     type: 'create_room',
@@ -876,6 +671,9 @@
             GameState.myColor = data.color;
             
             document.getElementById('displayRoomCode').textContent = data.roomCode;
+            
+            const link = window.location.origin + window.location.pathname + '?room=' + data.roomCode;
+            document.getElementById('roomLink').textContent = link;
             
             const password = document.getElementById('createRoomPassword').value;
             if (password) {
@@ -906,11 +704,9 @@
         
         function handleOpponentJoined(data) {
             closePanel('waitingPanel');
-            
             GameState.players[2] = { name: data.opponent.name, time: GameState.gameTime, moves: 0 };
-            
             initGame('online', {
-                player1: GameState.players[1].name,
+                player1: GameState.myName,
                 player2: data.opponent.name,
                 time: GameState.gameTime,
                 size: GameState.boardSize
@@ -918,10 +714,13 @@
         }
         
         function cancelWaiting() {
-            if (ws) {
-                ws.close();
-            }
+            if (ws) ws.close();
             closePanel('waitingPanel');
+        }
+        
+        function copyRoomLink() {
+            const link = document.getElementById('roomLink').textContent;
+            navigator.clipboard.writeText(link).then(() => alert('链接已复制！')).catch(() => alert('复制失败，请手动复制：' + link));
         }
         
         // ==================== 游戏核心 ====================
@@ -933,22 +732,17 @@
             GameState.isPlaying = true;
             GameState.moveHistory = [];
             GameState.startTime = Date.now();
-            
             GameState.players[1] = { name: config.player1, time: config.time, moves: 0 };
             GameState.players[2] = { name: config.player2, time: config.time, moves: 0 };
             
-            // 初始化棋盘
             GameState.board = [];
             for (let i = 0; i < config.size; i++) {
                 GameState.board[i] = [];
-                for (let j = 0; j < config.size; j++) {
-                    GameState.board[i][j] = 0;
-                }
+                for (let j = 0; j < config.size; j++) GameState.board[i][j] = 0;
             }
             
             document.getElementById('menuScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'block';
-            
             document.getElementById('player1Name').textContent = GameState.players[1].name;
             document.getElementById('player2Name').textContent = GameState.players[2].name;
             
@@ -964,10 +758,7 @@
             
             renderBoard();
             updateUI();
-            
-            if (config.time > 0) {
-                startTimer();
-            }
+            if (config.time > 0) startTimer();
         }
         
         function renderBoard() {
@@ -977,21 +768,12 @@
             board.innerHTML = '';
             board.style.gridTemplateColumns = `repeat(${size}, 32px)`;
             
-            const starPoints = size === 15 ? 
-                [[3,3], [3,7], [3,11], [7,3], [7,7], [7,11], [11,3], [11,7], [11,11]] :
-                [[3,3], [3,6], [3,9], [6,3], [6,6], [6,9], [9,3], [9,6], [9,9]];
-            
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
-                    
-                    if (starPoints.some(p => p[0] === i && p[1] === j)) {
-                        cell.classList.add('star-point');
-                    }
-                    
                     cell.addEventListener('click', () => placePiece(i, j));
                     board.appendChild(cell);
                 }
@@ -1003,14 +785,8 @@
             if (GameState.board[row][col] !== 0) return;
             
             if (GameState.gameMode === 'online') {
-                // 发送到服务器
-                sendToServer({
-                    type: 'place_piece',
-                    row,
-                    col
-                });
+                sendToServer({ type: 'place_piece', row, col });
             } else {
-                // 本地模式直接处理
                 doPlacePiece(row, col, GameState.currentPlayer);
             }
         }
@@ -1019,18 +795,10 @@
             GameState.board[row][col] = player;
             GameState.players[player].moves++;
             GameState.moveHistory.push({ row, col, player });
-            
             updateCell(row, col);
             
-            if (checkWin(row, col, player)) {
-                endGame(player);
-                return;
-            }
-            
-            if (GameState.moveHistory.length === GameState.boardSize * GameState.boardSize) {
-                endGame(0);
-                return;
-            }
+            if (checkWin(row, col, player)) { endGame(player); return; }
+            if (GameState.moveHistory.length === GameState.boardSize * GameState.boardSize) { endGame(0); return; }
             
             GameState.currentPlayer = GameState.currentPlayer === 1 ? 2 : 1;
             updateUI();
@@ -1044,9 +812,7 @@
         
         function updateCell(row, col) {
             const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
-            
             document.querySelectorAll('.piece.last-move').forEach(p => p.classList.remove('last-move'));
-            
             const piece = document.createElement('div');
             piece.className = `piece ${GameState.board[row][col] === 1 ? 'black' : 'white'} last-move`;
             cell.appendChild(piece);
@@ -1054,75 +820,45 @@
         }
         
         function checkWin(row, col, player) {
-            const directions = [
-                [[0, 1], [0, -1]],
-                [[1, 0], [-1, 0]],
-                [[1, 1], [-1, -1]],
-                [[1, -1], [-1, 1]]
-            ];
-            
+            const directions = [[[0, 1], [0, -1]], [[1, 0], [-1, 0]], [[1, 1], [-1, -1]], [[1, -1], [-1, 1]]];
             for (const dir of directions) {
                 let count = 1;
-                
                 for (const [dr, dc] of dir) {
-                    let r = row + dr;
-                    let c = col + dc;
-                    
-                    while (r >= 0 && r < GameState.boardSize && c >= 0 && c < GameState.boardSize && GameState.board[r][c] === player) {
-                        count++;
-                        r += dr;
-                        c += dc;
-                    }
+                    let r = row + dr, c = col + dc;
+                    while (r >= 0 && r < GameState.boardSize && c >= 0 && c < GameState.boardSize && GameState.board[r][c] === player) { count++; r += dr; c += dc; }
                 }
-                
                 if (count >= 5) return true;
             }
-            
             return false;
         }
         
-        function handleGameOver(data) {
-            endGame(data.winner);
-        }
+        function handleGameOver(data) { endGame(data.winner); }
         
         function endGame(winner) {
             GameState.isPlaying = false;
             stopTimer();
             
             const winnerName = document.getElementById('winnerName');
+            if (winner === 0) { winnerName.textContent = '平局!'; winnerName.style.color = '#f39c12'; }
+            else { winnerName.textContent = `${GameState.players[winner].name} 获胜!`; winnerName.style.color = '#2ecc71'; }
             
-            if (winner === 0) {
-                winnerName.textContent = '平局!';
-                winnerName.style.color = '#f39c12';
-            } else {
-                winnerName.textContent = `${GameState.players[winner].name} 获胜!`;
-                winnerName.style.color = '#2ecc71';
-            }
-            
-            const elapsed = Math.floor((Date.now() - GameState.startTime) / 1000);
-            document.getElementById('totalTime').textContent = elapsed;
+            document.getElementById('totalTime').textContent = Math.floor((Date.now() - GameState.startTime) / 1000);
             document.getElementById('totalMoves').textContent = GameState.moveHistory.length;
-            
             saveGameHistory(winner);
             document.getElementById('winModal').style.display = 'flex';
         }
         
-        function handleOpponentLeft(data) {
-            alert('对手已离开游戏');
-            backToMenu();
-        }
+        function handleOpponentLeft(data) { alert('对手已离开游戏'); backToMenu(); }
         
         function updateUI() {
             document.getElementById('player1Info').classList.toggle('active', GameState.currentPlayer === 1);
             document.getElementById('player2Info').classList.toggle('active', GameState.currentPlayer === 2);
-            
             document.getElementById('player1Moves').textContent = GameState.players[1].moves;
             document.getElementById('player2Moves').textContent = GameState.players[2].moves;
             
             const status = document.getElementById('gameStatus');
             if (GameState.gameMode === 'online') {
-                const myTurn = GameState.currentPlayer === GameState.myColor;
-                status.textContent = myTurn ? '轮到你了' : '等待对手...';
+                status.textContent = GameState.currentPlayer === GameState.myColor ? '轮到你了' : '等待对手...';
             } else {
                 status.textContent = `${GameState.players[GameState.currentPlayer].name} 落子`;
             }
@@ -1131,44 +867,25 @@
         // ==================== 计时器 ====================
         function startTimer() {
             if (GameState.timer) clearInterval(GameState.timer);
-            
             GameState.timer = setInterval(() => {
                 if (!GameState.isPlaying) return;
-                
                 GameState.players[GameState.currentPlayer].time--;
                 updateTimerDisplay();
-                
-                if (GameState.players[GameState.currentPlayer].time <= 0) {
-                    const winner = GameState.currentPlayer === 1 ? 2 : 1;
-                    endGame(winner);
-                }
+                if (GameState.players[GameState.currentPlayer].time <= 0) endGame(GameState.currentPlayer === 1 ? 2 : 1);
             }, 1000);
         }
         
-        function stopTimer() {
-            if (GameState.timer) {
-                clearInterval(GameState.timer);
-                GameState.timer = null;
-            }
-        }
+        function stopTimer() { if (GameState.timer) { clearInterval(GameState.timer); GameState.timer = null; } }
         
         function updateTimerDisplay() {
-            const formatTime = (seconds) => {
-                const m = Math.floor(seconds / 60);
-                const s = seconds % 60;
-                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            };
-            
+            const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
             document.getElementById('player1Time').textContent = formatTime(GameState.players[1].time);
             document.getElementById('player2Time').textContent = formatTime(GameState.players[2].time);
         }
         
         // ==================== 游戏操作 ====================
         function undoMove() {
-            if (GameState.gameMode === 'online') {
-                alert('在线对战不支持悔棋');
-                return;
-            }
+            if (GameState.gameMode === 'online') { alert('在线对战不支持悔棋'); return; }
             if (GameState.moveHistory.length === 0) return;
             
             const lastMove = GameState.moveHistory.pop();
@@ -1179,20 +896,14 @@
             const cell = document.querySelector(`.cell[data-row="${lastMove.row}"][data-col="${lastMove.col}"]`);
             cell.innerHTML = '';
             cell.classList.remove('has-piece');
-            
             updateUI();
         }
         
         function surrender() {
             if (!GameState.isPlaying) return;
             if (!confirm('确定要认输吗？')) return;
-            
-            if (GameState.gameMode === 'online') {
-                sendToServer({ type: 'surrender' });
-            } else {
-                const winner = GameState.currentPlayer === 1 ? 2 : 1;
-                endGame(winner);
-            }
+            if (GameState.gameMode === 'online') sendToServer({ type: 'surrender' });
+            else endGame(GameState.currentPlayer === 1 ? 2 : 1);
         }
         
         function restartGame() {
@@ -1208,44 +919,18 @@
         // ==================== 对局记录 ====================
         function saveGameHistory(winner) {
             const history = JSON.parse(localStorage.getItem('gomoku_history') || '[]');
-            
-            history.unshift({
-                date: new Date().toLocaleString(),
-                player1: GameState.players[1].name,
-                player2: GameState.players[2].name,
-                winner: winner === 0 ? '平局' : GameState.players[winner].name,
-                moves: GameState.moveHistory.length,
-                mode: GameState.gameMode
-            });
-            
+            history.unshift({ date: new Date().toLocaleString(), player1: GameState.players[1].name, player2: GameState.players[2].name, winner: winner === 0 ? '平局' : GameState.players[winner].name, moves: GameState.moveHistory.length, mode: GameState.gameMode });
             if (history.length > 50) history.pop();
             localStorage.setItem('gomoku_history', JSON.stringify(history));
         }
         
-        function loadGameHistory() {
-            GameState.gameHistory = JSON.parse(localStorage.getItem('gomoku_history') || '[]');
-        }
+        function loadGameHistory() { GameState.gameHistory = JSON.parse(localStorage.getItem('gomoku_history') || '[]'); }
         
         function renderHistory() {
             const list = document.getElementById('historyList');
             const history = JSON.parse(localStorage.getItem('gomoku_history') || '[]');
-            
-            if (history.length === 0) {
-                list.innerHTML = '<p style="text-align: center; color: #888;">暂无对局记录</p>';
-                return;
-            }
-            
-            list.innerHTML = history.map(game => `
-                <div class="room-item">
-                    <div>
-                        <div>${game.player1} vs ${game.player2}</div>
-                        <div style="font-size: 12px; color: #888;">${game.date}</div>
-                    </div>
-                    <div>
-                        <div style="color: #2ecc71; font-weight: 600;">${game.winner} ${game.winner !== '平局' ? '胜' : ''}</div>
-                    </div>
-                </div>
-            `).join('');
+            if (history.length === 0) { list.innerHTML = '<p style="text-align: center; color: #888;">暂无对局记录</p>'; return; }
+            list.innerHTML = history.map(g => `<div class="room-item"><div><div>${g.player1} vs ${g.player2}</div><div style="font-size: 12px; color: #888;">${g.date}</div></div><div style="color: #2ecc71; font-weight: 600;">${g.winner} ${g.winner !== '平局' ? '胜' : ''}</div></div>`).join('');
         }
     </script>
 </body>

@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 8080;
 const ROOM_TIMEOUT = 30 * 60 * 1000; // 房间超时：30分钟
 const HEARTBEAT_INTERVAL = 30000; // 心跳间隔：30秒
+const MAX_BOARD_SIZE = 25; // 最大棋盘 25x25
 
 // 创建 HTTP 服务器
 const server = http.createServer((req, res) => {
