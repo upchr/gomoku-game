@@ -113,13 +113,21 @@
         }
         
         /* 棋盘 */
-        .board-container { display: flex; justify-content: center; margin: 10px 0; }
+        .board-container { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            margin: 10px 0; 
+        }
         
         .board {
             background: #d4a574;
             border-radius: 4px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
             position: relative;
+            /* 默认最小尺寸，防止渲染前消失 */
+            min-width: 312px;
+            min-height: 312px;
         }
         
         /* Canvas网格线 */
