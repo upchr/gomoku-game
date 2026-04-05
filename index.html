@@ -119,12 +119,13 @@
             position: relative;
             /* 使用CSS变量控制尺寸 */
             --cell-size: 24px;
-            --board-size: calc(var(--cell-size) * 15);
+            --board-size: calc(var(--cell-size) * var(--board-cells, 15));
             width: var(--board-size);
             height: var(--board-size);
             background: #d4a574;
-            border-radius: 6px;
+            border-radius: 4px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            overflow: hidden; /* 裁切超出内容 */
         }
         
         .board-grid { 
@@ -151,6 +152,7 @@
             left: 0;
             pointer-events: none;
             z-index: 0;
+            overflow: hidden;
         }
         
         /* 预览标记 */
@@ -1257,17 +1259,18 @@
             
             board.innerHTML = '';
             
-            // 设置棋盘CSS变量（确保正方形）
+            // 设置棋盘CSS变量
             board.style.setProperty('--cell-size', cellSize + 'px');
-            board.style.setProperty('--board-size', (size * cellSize) + 'px');
+            board.style.setProperty('--board-cells', size);
             
             const boardSize = size * cellSize;
             
-            // 创建SVG网格线
+            // 创建SVG网格线（尺寸与棋盘完全一致）
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('class', 'grid-lines');
             svg.setAttribute('width', boardSize);
             svg.setAttribute('height', boardSize);
+            svg.setAttribute('viewBox', `0 0 ${boardSize} ${boardSize}`);
             svg.style.width = boardSize + 'px';
             svg.style.height = boardSize + 'px';
             
@@ -1277,7 +1280,7 @@
             for (let i = 0; i < size; i++) {
                 const pos = lineOffset + i * cellSize;
                 
-                // 垂直线
+                // 垂直线（确保不超出边界）
                 const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 vLine.setAttribute('x1', pos);
                 vLine.setAttribute('y1', lineOffset);
@@ -1285,9 +1288,10 @@
                 vLine.setAttribute('y2', boardSize - lineOffset);
                 vLine.setAttribute('stroke', lineColor);
                 vLine.setAttribute('stroke-width', '1');
+                vLine.setAttribute('stroke-linecap', 'square');
                 svg.appendChild(vLine);
                 
-                // 水平线
+                // 水平线（确保不超出边界）
                 const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 hLine.setAttribute('x1', lineOffset);
                 hLine.setAttribute('y1', pos);
@@ -1295,12 +1299,13 @@
                 hLine.setAttribute('y2', pos);
                 hLine.setAttribute('stroke', lineColor);
                 hLine.setAttribute('stroke-width', '1');
+                hLine.setAttribute('stroke-linecap', 'square');
                 svg.appendChild(hLine);
             }
             
             board.appendChild(svg);
             
-            // 创建格子网格（绝对定位，从0,0开始）
+            // 创建格子网格（尺寸与SVG完全一致）
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
