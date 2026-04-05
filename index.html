@@ -11,7 +11,6 @@
             --primary: #2c3e50;
             --secondary: #34495e;
             --accent: #e74c3c;
-            --light: #ecf0f1;
             --board: #d4a574;
             --board-line: #8b6914;
             --success: #2ecc71;
@@ -42,14 +41,12 @@
         header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         
         header p {
             color: #aaa;
         }
         
-        /* 主菜单 */
         .menu-screen {
             background: rgba(255,255,255,0.1);
             border-radius: 20px;
@@ -72,30 +69,16 @@
             font-weight: 600;
         }
         
-        .menu-btn.primary {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: #fff;
-        }
-        
-        .menu-btn.secondary {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: #fff;
-        }
-        
-        .menu-btn.tertiary {
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
-            color: #fff;
-        }
+        .menu-btn.primary { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; }
+        .menu-btn.secondary { background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; }
+        .menu-btn.tertiary { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
         
         .menu-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
         
-        /* 游戏界面 */
-        .game-screen {
-            display: none;
-        }
+        .game-screen { display: none; }
         
         .game-header {
             display: flex;
@@ -148,7 +131,6 @@
             border-radius: 8px;
         }
         
-        /* 棋盘 */
         .board-container {
             display: flex;
             justify-content: center;
@@ -160,13 +142,11 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            position: relative;
         }
         
         .board-grid {
             display: grid;
             gap: 0;
-            position: relative;
         }
         
         .cell {
@@ -176,29 +156,14 @@
             cursor: pointer;
         }
         
-        .cell::before,
-        .cell::after {
+        .cell::before, .cell::after {
             content: '';
             position: absolute;
             background: var(--board-line);
         }
         
-        .cell::before {
-            width: 1px;
-            height: 100%;
-            left: 50%;
-            top: 0;
-        }
-        
-        .cell::after {
-            width: 100%;
-            height: 1px;
-            left: 0;
-            top: 50%;
-        }
-        
-        .cell:first-child::before { top: 50%; height: 50%; }
-        .cell:last-child::before { height: 50%; }
+        .cell::before { width: 1px; height: 100%; left: 50%; top: 0; }
+        .cell::after { width: 100%; height: 1px; left: 0; top: 50%; }
         
         .piece {
             position: absolute;
@@ -209,7 +174,6 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
-            transition: all 0.2s;
         }
         
         .piece.black {
@@ -234,37 +198,6 @@
             transform: translate(-50%, -50%);
         }
         
-        .cell:hover::before {
-            content: '';
-            position: absolute;
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.2);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 5;
-        }
-        
-        .cell.has-piece:hover::before {
-            display: none;
-        }
-        
-        .star-point::before {
-            content: '';
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: var(--board-line);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1;
-        }
-        
-        /* 控制按钮 */
         .controls {
             display: flex;
             justify-content: center;
@@ -282,34 +215,16 @@
             transition: all 0.3s;
         }
         
-        .btn-primary {
-            background: #3498db;
-            color: #fff;
-        }
+        .btn-primary { background: #3498db; color: #fff; }
+        .btn-danger { background: #e74c3c; color: #fff; }
+        .btn-success { background: #2ecc71; color: #fff; }
         
-        .btn-danger {
-            background: #e74c3c;
-            color: #fff;
-        }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
         
-        .btn-success {
-            background: #2ecc71;
-            color: #fff;
-        }
-        
-        .btn:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-        }
-        
-        /* 弹窗基础样式 */
         .modal-panel {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.8);
             z-index: 1000;
             justify-content: center;
@@ -324,27 +239,15 @@
             border-radius: 15px;
             max-width: 500px;
             width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
         }
         
-        .modal-content h2 {
-            margin-bottom: 20px;
-            text-align: center;
-        }
+        .modal-content h2 { margin-bottom: 20px; text-align: center; }
         
-        .form-group {
-            margin-bottom: 20px;
-        }
+        .form-group { margin-bottom: 20px; }
         
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #aaa;
-        }
+        .form-group label { display: block; margin-bottom: 8px; color: #aaa; }
         
-        .form-group input,
-        .form-group select {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #34495e;
@@ -354,13 +257,11 @@
             font-size: 16px;
         }
         
-        .form-group input:focus,
-        .form-group select:focus {
+        .form-group input:focus, .form-group select:focus {
             border-color: #3498db;
             outline: none;
         }
         
-        /* 房间列表 */
         .room-list {
             max-height: 300px;
             overflow-y: auto;
@@ -376,27 +277,12 @@
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            transition: all 0.3s;
         }
         
-        .room-item:hover {
-            background: rgba(255,255,255,0.1);
-        }
+        .room-item:hover { background: rgba(255,255,255,0.1); }
         
-        .room-item .info {
-            flex: 1;
-        }
-        
-        .room-item .code {
-            font-size: 18px;
-            font-weight: 600;
-            color: #3498db;
-        }
-        
-        .room-item .host {
-            font-size: 14px;
-            color: #aaa;
-        }
+        .room-item .code { font-size: 18px; font-weight: 600; color: #3498db; }
+        .room-item .host { font-size: 14px; color: #aaa; }
         
         .room-item .status {
             padding: 5px 10px;
@@ -404,17 +290,9 @@
             font-size: 12px;
         }
         
-        .room-item .status.waiting {
-            background: rgba(46, 204, 113, 0.2);
-            color: #2ecc71;
-        }
+        .room-item .status.waiting { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+        .room-item .status.locked { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
         
-        .room-item .status.locked {
-            background: rgba(243, 156, 18, 0.2);
-            color: #f39c12;
-        }
-        
-        /* 对局记录 */
         .history-panel {
             display: none;
             background: rgba(255,255,255,0.1);
@@ -425,52 +303,29 @@
             overflow-y: auto;
         }
         
-        .history-item {
-            padding: 15px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .history-item .winner {
-            font-weight: 600;
-            color: #2ecc71;
-        }
-        
-        /* 房间信息 */
-        .room-info {
-            background: rgba(0,0,0,0.2);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
         .room-code-display {
             font-size: 36px;
             font-family: 'Courier New', monospace;
             letter-spacing: 8px;
             color: #2ecc71;
             margin: 10px 0;
+            text-align: center;
         }
         
-        .room-link {
-            background: rgba(0,0,0,0.3);
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            word-break: break-all;
-            margin-top: 10px;
+        .online-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
         }
+        
+        .online-indicator.connected { background: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
+        .online-indicator.disconnected { background: #e74c3c; }
         
         .waiting-dots span {
             animation: blink 1.4s infinite;
-            animation-fill-mode: both;
         }
-        
         .waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
         .waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
         
@@ -479,14 +334,10 @@
             40% { opacity: 1; }
         }
         
-        /* 胜利弹窗 */
         .win-modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.9);
             z-index: 2000;
             justify-content: center;
@@ -498,89 +349,14 @@
             padding: 50px;
             border-radius: 20px;
             text-align: center;
-            animation: popIn 0.3s ease;
         }
         
-        @keyframes popIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
+        .win-content .winner-name { color: #2ecc71; font-size: 28px; margin: 20px 0; }
         
-        .win-content h2 {
-            font-size: 36px;
-            margin-bottom: 10px;
-        }
-        
-        .win-content .winner-name {
-            color: #2ecc71;
-            font-size: 28px;
-            margin-bottom: 30px;
-        }
-        
-        /* 在线状态指示 */
-        .online-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-        
-        .online-indicator.connected {
-            background: #2ecc71;
-            box-shadow: 0 0 10px #2ecc71;
-        }
-        
-        .online-indicator.waiting {
-            background: #f39c12;
-            animation: pulse 1s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        /* 响应式 */
         @media (max-width: 600px) {
-            .cell {
-                width: 24px;
-                height: 24px;
-            }
-            
-            .piece {
-                width: 20px;
-                height: 20px;
-            }
-            
-            header h1 {
-                font-size: 1.8em;
-            }
-            
-            .menu-screen {
-                padding: 25px;
-            }
-            
-            .player-info {
-                padding: 10px 15px;
-                min-width: 120px;
-            }
-        }
-        
-        /* 密码输入框 */
-        .password-input-wrapper {
-            position: relative;
-        }
-        
-        .password-toggle {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #aaa;
-            cursor: pointer;
+            .cell { width: 24px; height: 24px; }
+            .piece { width: 20px; height: 20px; }
+            header h1 { font-size: 1.8em; }
         }
     </style>
 </head>
@@ -591,20 +367,12 @@
             <p>本地对战 · 在线对战 · 对局记录</p>
         </header>
         
-        <!-- 主菜单 -->
         <div class="menu-screen" id="menuScreen">
-            <button class="menu-btn primary" onclick="showLocalSetup()">
-                🎮 本地对战
-            </button>
-            <button class="menu-btn secondary" onclick="showOnlinePanel()">
-                🌐 在线对战
-            </button>
-            <button class="menu-btn tertiary" onclick="showHistory()">
-                📋 对局记录
-            </button>
+            <button class="menu-btn primary" onclick="showLocalSetup()">🎮 本地对战</button>
+            <button class="menu-btn secondary" onclick="showOnlinePanel()">🌐 在线对战</button>
+            <button class="menu-btn tertiary" onclick="showHistory()">📋 对局记录</button>
         </div>
         
-        <!-- 游戏界面 -->
         <div class="game-screen" id="gameScreen">
             <div class="game-header">
                 <div class="player-info" id="player1Info">
@@ -614,7 +382,7 @@
                 </div>
                 
                 <div class="game-status">
-                    <span class="online-indicator" id="onlineIndicator" style="display:none"></span>
+                    <span class="online-indicator disconnected" id="onlineIndicator" style="display:none"></span>
                     <span id="gameStatus">黑方先行</span>
                 </div>
                 
@@ -639,7 +407,6 @@
             </div>
         </div>
         
-        <!-- 对局记录 -->
         <div class="history-panel" id="historyPanel">
             <h3 style="margin-bottom: 15px;">📋 对局记录</h3>
             <div id="historyList"></div>
@@ -650,17 +417,14 @@
     <div class="modal-panel" id="localSetupPanel">
         <div class="modal-content">
             <h2>🎮 本地对战设置</h2>
-            
             <div class="form-group">
                 <label>黑方名称</label>
                 <input type="text" id="localPlayer1" placeholder="玩家1" maxlength="10">
             </div>
-            
             <div class="form-group">
                 <label>白方名称</label>
                 <input type="text" id="localPlayer2" placeholder="玩家2" maxlength="10">
             </div>
-            
             <div class="form-group">
                 <label>对局时长</label>
                 <select id="gameTime">
@@ -668,11 +432,8 @@
                     <option value="180">3分钟</option>
                     <option value="300" selected>5分钟</option>
                     <option value="600">10分钟</option>
-                    <option value="900">15分钟</option>
-                    <option value="1800">30分钟</option>
                 </select>
             </div>
-            
             <div class="form-group">
                 <label>棋盘大小</label>
                 <select id="boardSize">
@@ -681,7 +442,6 @@
                     <option value="19">19×19</option>
                 </select>
             </div>
-            
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-primary" style="flex:1" onclick="startLocalGame()">开始游戏</button>
                 <button class="btn btn-danger" onclick="closePanel('localSetupPanel')">取消</button>
@@ -693,30 +453,25 @@
     <div class="modal-panel" id="onlinePanel">
         <div class="modal-content">
             <h2>🌐 在线对战</h2>
-            
             <div class="form-group">
                 <label>你的昵称</label>
                 <input type="text" id="onlineNickname" placeholder="输入昵称" maxlength="10">
             </div>
-            
             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                 <button class="btn btn-primary" style="flex:1" onclick="showCreateRoom()">创建房间</button>
                 <button class="btn btn-success" style="flex:1" onclick="refreshRoomList()">房间列表</button>
             </div>
-            
             <div id="roomListContainer" style="display:none">
                 <h4 style="margin-bottom: 10px;">可用房间</h4>
                 <div class="room-list" id="roomList">
                     <p style="text-align: center; color: #888;">加载中...</p>
                 </div>
-                
                 <div class="form-group">
                     <label>手动输入房间码</label>
                     <input type="text" id="manualRoomCode" placeholder="6位房间码" maxlength="6" style="text-transform: uppercase;">
                 </div>
                 <button class="btn btn-success" style="width:100%" onclick="joinRoomByCode()">加入房间</button>
             </div>
-            
             <button class="btn btn-danger" style="width:100%; margin-top: 15px;" onclick="closePanel('onlinePanel')">返回</button>
         </div>
     </div>
@@ -725,25 +480,18 @@
     <div class="modal-panel" id="createRoomPanel">
         <div class="modal-content">
             <h2>🏠 创建房间</h2>
-            
             <div class="form-group">
-                <label>房间密码（可选，留空则公开）</label>
-                <div class="password-input-wrapper">
-                    <input type="password" id="createRoomPassword" placeholder="留空表示公开房间">
-                    <button class="password-toggle" onclick="togglePassword('createRoomPassword')">👁️</button>
-                </div>
+                <label>房间密码（可选）</label>
+                <input type="password" id="createRoomPassword" placeholder="留空表示公开房间">
             </div>
-            
             <div class="form-group">
                 <label>对局时长</label>
                 <select id="onlineGameTime">
                     <option value="0">不限时</option>
                     <option value="300" selected>5分钟</option>
                     <option value="600">10分钟</option>
-                    <option value="900">15分钟</option>
                 </select>
             </div>
-            
             <div class="form-group">
                 <label>棋盘大小</label>
                 <select id="onlineBoardSize">
@@ -751,7 +499,6 @@
                     <option value="15" selected>15×15</option>
                 </select>
             </div>
-            
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-primary" style="flex:1" onclick="createRoom()">创建</button>
                 <button class="btn btn-danger" onclick="closePanel('createRoomPanel')">取消</button>
@@ -763,23 +510,16 @@
     <div class="modal-panel" id="waitingPanel">
         <div class="modal-content">
             <h2>⏳ 等待对手加入</h2>
-            
-            <div class="room-info">
-                <div>房间码</div>
-                <div class="room-code-display" id="displayRoomCode">ABC123</div>
-                <div id="roomPasswordHint" style="color: #f39c12; margin-top: 5px; display: none;">
-                    🔒 密码: <span id="displayRoomPassword"></span>
-                </div>
-                <div class="room-link" id="roomLinkContainer">
-                    分享链接: <span id="roomLink"></span>
-                </div>
-                <button class="btn btn-primary" style="margin-top: 15px;" onclick="copyRoomLink()">📋 复制链接</button>
+            <div class="room-code-display" id="displayRoomCode">ABC123</div>
+            <div id="roomPasswordHint" style="text-align: center; color: #f39c12; display: none;">
+                🔒 密码: <span id="displayRoomPassword"></span>
             </div>
-            
+            <p style="text-align: center; color: #888; margin-top: 20px;">
+                分享房间码给好友
+            </p>
             <p style="text-align: center; color: #aaa;">
                 等待对手加入<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
             </p>
-            
             <button class="btn btn-danger" style="width:100%; margin-top: 20px;" onclick="cancelWaiting()">取消</button>
         </div>
     </div>
@@ -788,16 +528,13 @@
     <div class="modal-panel" id="passwordPanel">
         <div class="modal-content">
             <h2>🔒 输入房间密码</h2>
-            
             <p style="text-align: center; margin-bottom: 20px; color: #aaa;">
                 房间 <span id="passwordRoomCode" style="color: #3498db; font-weight: 600;"></span> 需要密码
             </p>
-            
             <div class="form-group">
                 <label>房间密码</label>
                 <input type="password" id="joinRoomPassword" placeholder="输入密码">
             </div>
-            
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-success" style="flex:1" onclick="submitPassword()">加入</button>
                 <button class="btn btn-danger" onclick="closePanel('passwordPanel')">取消</button>
@@ -815,37 +552,18 @@
                 总步数: <span id="totalMoves">0</span> 步
             </div>
             <div style="display: flex; gap: 10px;">
-                <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
-                <button class="btn btn-danger" onclick="backToMenu()">返回菜单</button>
+                <button class="btn btn-primary" onclick="backToMenu()">返回菜单</button>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
     <script>
-        // ==================== Firebase 配置 ====================
-        // 使用公开的演示数据库（生产环境请替换为自己的）
-        const firebaseConfig = {
-            apiKey: "AIzaSyDemo-REPLACE-WITH-YOUR-KEY",
-            authDomain: "gomoku-demo.firebaseapp.com",
-            databaseURL: "https://gomoku-demo-default-rtdb.firebaseio.com",
-            projectId: "gomoku-demo",
-            storageBucket: "gomoku-demo.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
-        };
+        // ==================== WebSocket 配置 ====================
+        // Railway 部署后替换为实际地址
+        const WS_SERVER = 'wss://gomoku-server-production-xxxx.up.railway.app';
         
-        // 初始化 Firebase
-        let database = null;
-        let roomRef = null;
-        let gameRef = null;
-        
-        // 使用 localStorage 作为本地存储的后备方案
-        const USE_LOCAL_STORAGE = true; // 设为 false 使用 Firebase
-        const STORAGE_PREFIX = 'gomoku_';
+        let ws = null;
+        let wsConnected = false;
         
         // ==================== 游戏状态 ====================
         const GameState = {
@@ -862,17 +580,15 @@
             timer: null,
             startTime: null,
             moveHistory: [],
-            gameHistory: [],
-            room: null,
-            isMyTurn: true,
             myColor: 1,
-            myName: ''
+            myName: '',
+            roomCode: '',
+            pendingRoomCode: ''
         };
         
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', () => {
             loadGameHistory();
-            initFirebase();
             
             // 检查URL参数
             const params = new URLSearchParams(window.location.search);
@@ -880,20 +596,108 @@
             if (room) {
                 document.getElementById('manualRoomCode').value = room;
                 showOnlinePanel();
-                refreshRoomList();
             }
         });
         
-        function initFirebase() {
-            try {
-                // 尝试初始化 Firebase
-                if (typeof firebase !== 'undefined' && firebase.app) {
-                    const app = firebase.initializeApp(firebaseConfig);
-                    database = firebase.database();
-                    console.log('Firebase initialized');
+        // ==================== WebSocket 连接 ====================
+        function connectWebSocket() {
+            return new Promise((resolve, reject) => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    resolve();
+                    return;
                 }
-            } catch (e) {
-                console.log('Firebase not available, using localStorage');
+                
+                try {
+                    ws = new WebSocket(WS_SERVER);
+                    
+                    ws.onopen = () => {
+                        wsConnected = true;
+                        updateConnectionStatus(true);
+                        console.log('WebSocket connected');
+                        resolve();
+                    };
+                    
+                    ws.onclose = () => {
+                        wsConnected = false;
+                        updateConnectionStatus(false);
+                        console.log('WebSocket disconnected');
+                    };
+                    
+                    ws.onerror = (err) => {
+                        wsConnected = false;
+                        updateConnectionStatus(false);
+                        console.error('WebSocket error:', err);
+                        reject(err);
+                    };
+                    
+                    ws.onmessage = (event) => {
+                        handleServerMessage(JSON.parse(event.data));
+                    };
+                    
+                    // 超时
+                    setTimeout(() => {
+                        if (!wsConnected) {
+                            reject(new Error('Connection timeout'));
+                        }
+                    }, 5000);
+                    
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }
+        
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('onlineIndicator');
+            if (indicator) {
+                indicator.style.display = 'inline-block';
+                indicator.className = 'online-indicator ' + (connected ? 'connected' : 'disconnected');
+            }
+        }
+        
+        function sendToServer(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+            } else {
+                alert('未连接到服务器');
+            }
+        }
+        
+        function handleServerMessage(data) {
+            console.log('Server message:', data);
+            
+            switch (data.type) {
+                case 'room_created':
+                    handleRoomCreated(data);
+                    break;
+                    
+                case 'room_joined':
+                    handleRoomJoined(data);
+                    break;
+                    
+                case 'opponent_joined':
+                    handleOpponentJoined(data);
+                    break;
+                    
+                case 'room_list':
+                    handleRoomList(data);
+                    break;
+                    
+                case 'piece_placed':
+                    handlePiecePlaced(data);
+                    break;
+                    
+                case 'game_over':
+                    handleGameOver(data);
+                    break;
+                    
+                case 'opponent_left':
+                    handleOpponentLeft(data);
+                    break;
+                    
+                case 'error':
+                    alert(data.message);
+                    break;
             }
         }
         
@@ -928,17 +732,16 @@
         function backToMenu() {
             stopTimer();
             GameState.isPlaying = false;
-            cleanupRoom();
+            
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
             
             document.getElementById('gameScreen').style.display = 'none';
             document.getElementById('menuScreen').style.display = 'block';
             document.getElementById('winModal').style.display = 'none';
             document.getElementById('onlineIndicator').style.display = 'none';
-        }
-        
-        function togglePassword(inputId) {
-            const input = document.getElementById(inputId);
-            input.type = input.type === 'password' ? 'text' : 'password';
         }
         
         // ==================== 本地对战 ====================
@@ -953,35 +756,30 @@
         }
         
         // ==================== 在线对战 ====================
-        function generateRoomCode() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = '';
-            for (let i = 0; i < 6; i++) {
-                code += chars[Math.floor(Math.random() * chars.length)];
+        async function refreshRoomList() {
+            document.getElementById('roomListContainer').style.display = 'block';
+            document.getElementById('roomList').innerHTML = '<p style="text-align: center; color: #888;">连接服务器中...</p>';
+            
+            try {
+                await connectWebSocket();
+                sendToServer({ type: 'get_room_list' });
+            } catch (err) {
+                document.getElementById('roomList').innerHTML = '<p style="text-align: center; color: #e74c3c;">连接服务器失败，请检查网络</p>';
             }
-            return code;
         }
         
-        function refreshRoomList() {
-            document.getElementById('roomListContainer').style.display = 'block';
+        function handleRoomList(data) {
             const listEl = document.getElementById('roomList');
-            listEl.innerHTML = '<p style="text-align: center; color: #888;">加载中...</p>';
             
-            // 从 localStorage 获取房间列表
-            const rooms = getRooms();
-            const roomArray = Object.entries(rooms)
-                .filter(([code, room]) => room.status === 'waiting' && Date.now() - room.createdAt < 30 * 60 * 1000)
-                .sort((a, b) => b[1].createdAt - a[1].createdAt);
-            
-            if (roomArray.length === 0) {
+            if (!data.rooms || data.rooms.length === 0) {
                 listEl.innerHTML = '<p style="text-align: center; color: #888;">暂无可用房间，创建一个吧！</p>';
                 return;
             }
             
-            listEl.innerHTML = roomArray.map(([code, room]) => `
-                <div class="room-item" onclick="selectRoom('${code}', ${room.hasPassword})">
-                    <div class="info">
-                        <div class="code">${code}</div>
+            listEl.innerHTML = data.rooms.map(room => `
+                <div class="room-item" onclick="selectRoom('${room.code}', ${room.hasPassword})">
+                    <div>
+                        <div class="code">${room.code}</div>
                         <div class="host">房主: ${room.hostName}</div>
                     </div>
                     <div class="status ${room.hasPassword ? 'locked' : 'waiting'}">
@@ -1002,37 +800,27 @@
             }
         }
         
-        function joinRoomByCode() {
+        async function joinRoomByCode() {
             const code = document.getElementById('manualRoomCode').value.toUpperCase().trim();
             if (code.length !== 6) {
                 alert('请输入6位房间码');
                 return;
             }
             
-            const rooms = getRooms();
-            const room = rooms[code];
-            
-            if (!room) {
-                alert('房间不存在或已过期');
-                return;
-            }
-            
-            if (room.status !== 'waiting') {
-                alert('房间已开始或已关闭');
-                return;
-            }
-            
-            GameState.pendingRoomCode = code;
-            
-            if (room.hasPassword) {
-                document.getElementById('passwordRoomCode').textContent = code;
-                showPanel('passwordPanel');
-            } else {
-                joinRoom(code, '');
+            try {
+                await connectWebSocket();
+                sendToServer({
+                    type: 'join_room',
+                    roomCode: code,
+                    playerName: document.getElementById('onlineNickname').value || '玩家',
+                    password: ''
+                });
+            } catch (err) {
+                alert('连接服务器失败');
             }
         }
         
-        function submitPassword() {
+        async function submitPassword() {
             const password = document.getElementById('joinRoomPassword').value;
             const code = GameState.pendingRoomCode;
             
@@ -1041,47 +829,55 @@
                 return;
             }
             
-            joinRoom(code, password);
+            await joinRoom(code, password);
         }
         
-        function createRoom() {
+        async function joinRoom(code, password) {
+            try {
+                await connectWebSocket();
+                sendToServer({
+                    type: 'join_room',
+                    roomCode: code,
+                    playerName: document.getElementById('onlineNickname').value || '玩家',
+                    password: password
+                });
+            } catch (err) {
+                alert('连接服务器失败');
+            }
+        }
+        
+        async function createRoom() {
             const nickname = document.getElementById('onlineNickname').value || '玩家';
             const password = document.getElementById('createRoomPassword').value;
             const time = parseInt(document.getElementById('onlineGameTime').value);
             const size = parseInt(document.getElementById('onlineBoardSize').value);
-            const roomCode = generateRoomCode();
             
-            const room = {
-                code: roomCode,
-                password: password,
-                hasPassword: !!password,
-                hostName: nickname,
-                hostId: generatePlayerId(),
-                status: 'waiting',
-                gameTime: time,
-                boardSize: size,
-                createdAt: Date.now(),
-                board: [],
-                currentPlayer: 1,
-                moves: [],
-                players: {
-                    1: { name: nickname, time: time, moves: 0 },
-                    2: null
-                }
-            };
+            try {
+                await connectWebSocket();
+                
+                GameState.myName = nickname;
+                
+                sendToServer({
+                    type: 'create_room',
+                    playerName: nickname,
+                    password: password,
+                    gameTime: time,
+                    boardSize: size
+                });
+                
+                closePanel('createRoomPanel');
+            } catch (err) {
+                alert('连接服务器失败');
+            }
+        }
+        
+        function handleRoomCreated(data) {
+            GameState.roomCode = data.roomCode;
+            GameState.myColor = data.color;
             
-            // 保存房间
-            saveRoom(roomCode, room);
+            document.getElementById('displayRoomCode').textContent = data.roomCode;
             
-            GameState.room = room;
-            GameState.myColor = 1;
-            GameState.myName = nickname;
-            
-            closePanel('createRoomPanel');
-            
-            // 显示等待面板
-            document.getElementById('displayRoomCode').textContent = roomCode;
-            
+            const password = document.getElementById('createRoomPassword').value;
             if (password) {
                 document.getElementById('roomPasswordHint').style.display = 'block';
                 document.getElementById('displayRoomPassword').textContent = password;
@@ -1089,176 +885,43 @@
                 document.getElementById('roomPasswordHint').style.display = 'none';
             }
             
-            const link = window.location.origin + window.location.pathname + '?room=' + roomCode;
-            document.getElementById('roomLink').textContent = link;
-            
             showPanel('waitingPanel');
-            
-            // 开始监听房间变化
-            startRoomListener(roomCode);
         }
         
-        function joinRoom(code, password) {
-            const nickname = document.getElementById('onlineNickname').value || '玩家';
-            const rooms = getRooms();
-            const room = rooms[code];
-            
-            if (!room) {
-                alert('房间不存在');
-                return;
-            }
-            
-            if (room.status !== 'waiting') {
-                alert('房间已开始或已关闭');
-                return;
-            }
-            
-            if (room.hasPassword && room.password !== password) {
-                alert('密码错误');
-                return;
-            }
-            
-            // 加入房间
-            room.guestName = nickname;
-            room.guestId = generatePlayerId();
-            room.status = 'playing';
-            room.players[2] = { name: nickname, time: room.gameTime, moves: 0 };
-            
-            saveRoom(code, room);
-            
-            GameState.room = room;
-            GameState.myColor = 2;
-            GameState.myName = nickname;
-            
+        function handleRoomJoined(data) {
             closePanel('passwordPanel');
             closePanel('onlinePanel');
             
-            // 开始游戏
-            initGame('online', {
-                player1: room.players[1].name,
-                player2: nickname,
-                time: room.gameTime,
-                size: room.boardSize
-            });
-        }
-        
-        function startRoomListener(code) {
-            // 使用 storage 事件监听（跨标签页）
-            window.addEventListener('storage', (e) => {
-                if (e.key === STORAGE_PREFIX + 'room_' + code) {
-                    const room = JSON.parse(e.newValue);
-                    if (room && room.status === 'playing' && room.players[2]) {
-                        // 对手已加入
-                        stopRoomListener();
-                        closePanel('waitingPanel');
-                        
-                        GameState.room = room;
-                        initGame('online', {
-                            player1: room.players[1].name,
-                            player2: room.players[2].name,
-                            time: room.gameTime,
-                            size: room.boardSize
-                        });
-                    }
-                }
-            });
+            GameState.roomCode = data.roomCode;
+            GameState.myColor = data.color;
+            GameState.myName = document.getElementById('onlineNickname').value || '玩家';
             
-            // 同时轮询（备用）
-            GameState.pollInterval = setInterval(() => {
-                const rooms = getRooms();
-                const room = rooms[code];
-                
-                if (room && room.status === 'playing' && room.players[2]) {
-                    clearInterval(GameState.pollInterval);
-                    closePanel('waitingPanel');
-                    
-                    GameState.room = room;
-                    initGame('online', {
-                        player1: room.players[1].name,
-                        player2: room.players[2].name,
-                        time: room.gameTime,
-                        size: room.boardSize
-                    });
-                }
-                
-                // 超时
-                if (!room || Date.now() - room.createdAt > 30 * 60 * 1000) {
-                    clearInterval(GameState.pollInterval);
-                    alert('等待超时，房间已关闭');
-                    cancelWaiting();
-                }
-            }, 1000);
+            initGame('online', {
+                player1: data.color === 1 ? GameState.myName : data.opponent.name,
+                player2: data.color === 2 ? GameState.myName : data.opponent.name,
+                time: data.gameTime,
+                size: data.boardSize
+            });
         }
         
-        function stopRoomListener() {
-            if (GameState.pollInterval) {
-                clearInterval(GameState.pollInterval);
-                GameState.pollInterval = null;
-            }
+        function handleOpponentJoined(data) {
+            closePanel('waitingPanel');
+            
+            GameState.players[2] = { name: data.opponent.name, time: GameState.gameTime, moves: 0 };
+            
+            initGame('online', {
+                player1: GameState.players[1].name,
+                player2: data.opponent.name,
+                time: GameState.gameTime,
+                size: GameState.boardSize
+            });
         }
         
         function cancelWaiting() {
-            stopRoomListener();
-            
-            if (GameState.room) {
-                deleteRoom(GameState.room.code);
+            if (ws) {
+                ws.close();
             }
-            
             closePanel('waitingPanel');
-        }
-        
-        function copyRoomLink() {
-            const link = document.getElementById('roomLink').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                alert('链接已复制！');
-            }).catch(() => {
-                // 降级方案
-                const input = document.createElement('input');
-                input.value = link;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                document.body.removeChild(input);
-                alert('链接已复制！');
-            });
-        }
-        
-        // ==================== 存储操作 ====================
-        function getRooms() {
-            const rooms = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith(STORAGE_PREFIX + 'room_')) {
-                    try {
-                        const code = key.replace(STORAGE_PREFIX + 'room_', '');
-                        rooms[code] = JSON.parse(localStorage.getItem(key));
-                    } catch (e) {}
-                }
-            }
-            return rooms;
-        }
-        
-        function saveRoom(code, room) {
-            localStorage.setItem(STORAGE_PREFIX + 'room_' + code, JSON.stringify(room));
-        }
-        
-        function deleteRoom(code) {
-            localStorage.removeItem(STORAGE_PREFIX + 'room_' + code);
-        }
-        
-        function generatePlayerId() {
-            return 'player_' + Math.random().toString(36).substr(2, 9);
-        }
-        
-        function cleanupRoom() {
-            if (GameState.room) {
-                // 如果我是房主且游戏未结束，删除房间
-                if (GameState.myColor === 1 && GameState.isPlaying) {
-                    deleteRoom(GameState.room.code);
-                }
-            }
-            stopRoomListener();
-            stopGameSync();
         }
         
         // ==================== 游戏核心 ====================
@@ -1271,16 +934,8 @@
             GameState.moveHistory = [];
             GameState.startTime = Date.now();
             
-            GameState.players[1] = {
-                name: config.player1,
-                time: config.time,
-                moves: 0
-            };
-            GameState.players[2] = {
-                name: config.player2,
-                time: config.time,
-                moves: 0
-            };
+            GameState.players[1] = { name: config.player1, time: config.time, moves: 0 };
+            GameState.players[2] = { name: config.player2, time: config.time, moves: 0 };
             
             // 初始化棋盘
             GameState.board = [];
@@ -1291,38 +946,25 @@
                 }
             }
             
-            // 显示游戏界面
             document.getElementById('menuScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'block';
             
-            // 更新玩家信息
             document.getElementById('player1Name').textContent = GameState.players[1].name;
             document.getElementById('player2Name').textContent = GameState.players[2].name;
             
-            // 在线模式标记自己
             if (mode === 'online') {
                 document.getElementById('onlineIndicator').style.display = 'inline-block';
-                document.getElementById('onlineIndicator').className = 'online-indicator connected';
-                
                 document.getElementById('player1Info').classList.toggle('me', GameState.myColor === 1);
                 document.getElementById('player2Info').classList.toggle('me', GameState.myColor === 2);
-                
-                GameState.isMyTurn = GameState.myColor === 1;
-                
-                // 开始游戏同步
-                startGameSync();
             } else {
                 document.getElementById('onlineIndicator').style.display = 'none';
                 document.getElementById('player1Info').classList.remove('me');
                 document.getElementById('player2Info').classList.remove('me');
-                GameState.isMyTurn = true;
             }
             
-            // 渲染棋盘
             renderBoard();
             updateUI();
             
-            // 启动计时器
             if (config.time > 0) {
                 startTimer();
             }
@@ -1360,49 +1002,50 @@
             if (!GameState.isPlaying) return;
             if (GameState.board[row][col] !== 0) return;
             
-            // 在线模式检查是否轮到我
-            if (GameState.gameMode === 'online' && !GameState.isMyTurn) {
-                return;
+            if (GameState.gameMode === 'online') {
+                // 发送到服务器
+                sendToServer({
+                    type: 'place_piece',
+                    row,
+                    col
+                });
+            } else {
+                // 本地模式直接处理
+                doPlacePiece(row, col, GameState.currentPlayer);
             }
+        }
+        
+        function doPlacePiece(row, col, player) {
+            GameState.board[row][col] = player;
+            GameState.players[player].moves++;
+            GameState.moveHistory.push({ row, col, player });
             
-            // 落子
-            GameState.board[row][col] = GameState.currentPlayer;
-            GameState.players[GameState.currentPlayer].moves++;
-            GameState.moveHistory.push({ row, col, player: GameState.currentPlayer, time: Date.now() });
-            
-            // 更新棋盘显示
             updateCell(row, col);
             
-            // 同步到在线房间
-            if (GameState.gameMode === 'online') {
-                syncMove(row, col);
-            }
-            
-            // 检查胜负
-            if (checkWin(row, col)) {
-                endGame(GameState.currentPlayer);
+            if (checkWin(row, col, player)) {
+                endGame(player);
                 return;
             }
             
-            // 检查平局
             if (GameState.moveHistory.length === GameState.boardSize * GameState.boardSize) {
                 endGame(0);
                 return;
             }
             
-            // 切换玩家
             GameState.currentPlayer = GameState.currentPlayer === 1 ? 2 : 1;
-            GameState.isMyTurn = !GameState.isMyTurn;
-            
+            updateUI();
+        }
+        
+        function handlePiecePlaced(data) {
+            doPlacePiece(data.row, data.col, data.player);
+            GameState.currentPlayer = data.currentPlayer;
             updateUI();
         }
         
         function updateCell(row, col) {
             const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
             
-            document.querySelectorAll('.piece.last-move').forEach(p => {
-                p.classList.remove('last-move');
-            });
+            document.querySelectorAll('.piece.last-move').forEach(p => p.classList.remove('last-move'));
             
             const piece = document.createElement('div');
             piece.className = `piece ${GameState.board[row][col] === 1 ? 'black' : 'white'} last-move`;
@@ -1410,8 +1053,7 @@
             cell.classList.add('has-piece');
         }
         
-        function checkWin(row, col) {
-            const player = GameState.board[row][col];
+        function checkWin(row, col, player) {
             const directions = [
                 [[0, 1], [0, -1]],
                 [[1, 0], [-1, 0]],
@@ -1426,11 +1068,7 @@
                     let r = row + dr;
                     let c = col + dc;
                     
-                    while (
-                        r >= 0 && r < GameState.boardSize &&
-                        c >= 0 && c < GameState.boardSize &&
-                        GameState.board[r][c] === player
-                    ) {
+                    while (r >= 0 && r < GameState.boardSize && c >= 0 && c < GameState.boardSize && GameState.board[r][c] === player) {
                         count++;
                         r += dr;
                         c += dc;
@@ -1443,12 +1081,14 @@
             return false;
         }
         
+        function handleGameOver(data) {
+            endGame(data.winner);
+        }
+        
         function endGame(winner) {
             GameState.isPlaying = false;
             stopTimer();
-            stopGameSync();
             
-            const modal = document.getElementById('winModal');
             const winnerName = document.getElementById('winnerName');
             
             if (winner === 0) {
@@ -1464,13 +1104,12 @@
             document.getElementById('totalMoves').textContent = GameState.moveHistory.length;
             
             saveGameHistory(winner);
-            
-            // 在线模式清理房间
-            if (GameState.gameMode === 'online' && GameState.room) {
-                deleteRoom(GameState.room.code);
-            }
-            
-            modal.style.display = 'flex';
+            document.getElementById('winModal').style.display = 'flex';
+        }
+        
+        function handleOpponentLeft(data) {
+            alert('对手已离开游戏');
+            backToMenu();
         }
         
         function updateUI() {
@@ -1482,13 +1121,8 @@
             
             const status = document.getElementById('gameStatus');
             if (GameState.gameMode === 'online') {
-                if (!GameState.isPlaying) {
-                    status.textContent = '游戏结束';
-                } else if (GameState.isMyTurn) {
-                    status.textContent = '轮到你了';
-                } else {
-                    status.textContent = '等待对手...';
-                }
+                const myTurn = GameState.currentPlayer === GameState.myColor;
+                status.textContent = myTurn ? '轮到你了' : '等待对手...';
             } else {
                 status.textContent = `${GameState.players[GameState.currentPlayer].name} 落子`;
             }
@@ -1527,18 +1161,15 @@
             
             document.getElementById('player1Time').textContent = formatTime(GameState.players[1].time);
             document.getElementById('player2Time').textContent = formatTime(GameState.players[2].time);
-            
-            document.getElementById('player1Time').style.color = GameState.players[1].time < 30 ? '#e74c3c' : '#fff';
-            document.getElementById('player2Time').style.color = GameState.players[2].time < 30 ? '#e74c3c' : '#fff';
         }
         
         // ==================== 游戏操作 ====================
         function undoMove() {
-            if (GameState.moveHistory.length === 0) return;
             if (GameState.gameMode === 'online') {
                 alert('在线对战不支持悔棋');
                 return;
             }
+            if (GameState.moveHistory.length === 0) return;
             
             const lastMove = GameState.moveHistory.pop();
             GameState.board[lastMove.row][lastMove.col] = 0;
@@ -1549,13 +1180,6 @@
             cell.innerHTML = '';
             cell.classList.remove('has-piece');
             
-            if (GameState.moveHistory.length > 0) {
-                const prevMove = GameState.moveHistory[GameState.moveHistory.length - 1];
-                const prevCell = document.querySelector(`.cell[data-row="${prevMove.row}"][data-col="${prevMove.col}"]`);
-                const piece = prevCell.querySelector('.piece');
-                if (piece) piece.classList.add('last-move');
-            }
-            
             updateUI();
         }
         
@@ -1563,81 +1187,22 @@
             if (!GameState.isPlaying) return;
             if (!confirm('确定要认输吗？')) return;
             
-            const winner = GameState.currentPlayer === 1 ? 2 : 1;
-            endGame(winner);
+            if (GameState.gameMode === 'online') {
+                sendToServer({ type: 'surrender' });
+            } else {
+                const winner = GameState.currentPlayer === 1 ? 2 : 1;
+                endGame(winner);
+            }
         }
         
         function restartGame() {
             document.getElementById('winModal').style.display = 'none';
-            
             initGame(GameState.gameMode, {
                 player1: GameState.players[1].name,
                 player2: GameState.players[2].name,
                 time: GameState.gameTime,
                 size: GameState.boardSize
             });
-        }
-        
-        // ==================== 在线同步 ====================
-        function startGameSync() {
-            if (!GameState.room) return;
-            
-            window.addEventListener('storage', handleStorageEvent);
-        }
-        
-        function handleStorageEvent(e) {
-            if (!GameState.room || !GameState.isPlaying) return;
-            
-            if (e.key === STORAGE_PREFIX + 'room_' + GameState.room.code) {
-                try {
-                    const room = JSON.parse(e.newValue);
-                    if (!room || !room.moves) return;
-                    
-                    // 检查是否有新的落子
-                    const lastMove = room.moves[room.moves.length - 1];
-                    const myLastMove = GameState.moveHistory[GameState.moveHistory.length - 1];
-                    
-                    if (lastMove && (!myLastMove || lastMove.time > myLastMove.time)) {
-                        // 对手落子了
-                        GameState.board[lastMove.row][lastMove.col] = lastMove.player;
-                        GameState.players[lastMove.player].moves++;
-                        GameState.moveHistory.push(lastMove);
-                        
-                        updateCell(lastMove.row, lastMove.col);
-                        
-                        if (checkWin(lastMove.row, lastMove.col)) {
-                            endGame(lastMove.player);
-                            return;
-                        }
-                        
-                        GameState.currentPlayer = GameState.currentPlayer === 1 ? 2 : 1;
-                        GameState.isMyTurn = !GameState.isMyTurn;
-                        updateUI();
-                    }
-                } catch (err) {
-                    console.error('Sync error:', err);
-                }
-            }
-        }
-        
-        function syncMove(row, col) {
-            if (!GameState.room) return;
-            
-            const rooms = getRooms();
-            const room = rooms[GameState.room.code];
-            
-            if (room) {
-                room.board = GameState.board;
-                room.moves = GameState.moveHistory;
-                room.currentPlayer = GameState.currentPlayer === 1 ? 2 : 1;
-                room.players = GameState.players;
-                
-                saveRoom(GameState.room.code, room);
-            }
-        }
-        
-        function stopGameSync() {
-            window.removeEventListener('storage', handleStorageEvent);
         }
         
         // ==================== 对局记录 ====================
@@ -1654,7 +1219,6 @@
             });
             
             if (history.length > 50) history.pop();
-            
             localStorage.setItem('gomoku_history', JSON.stringify(history));
         }
         
@@ -1672,14 +1236,13 @@
             }
             
             list.innerHTML = history.map(game => `
-                <div class="history-item">
+                <div class="room-item">
                     <div>
                         <div>${game.player1} vs ${game.player2}</div>
                         <div style="font-size: 12px; color: #888;">${game.date}</div>
                     </div>
                     <div>
-                        <div class="winner">${game.winner} ${game.winner !== '平局' ? '胜' : ''}</div>
-                        <div style="font-size: 12px; color: #888;">${game.moves} 步</div>
+                        <div style="color: #2ecc71; font-weight: 600;">${game.winner} ${game.winner !== '平局' ? '胜' : ''}</div>
                     </div>
                 </div>
             `).join('');
