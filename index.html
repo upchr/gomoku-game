@@ -105,7 +105,7 @@
         
         .board {
             background: #d4a574;
-            padding: 12px;
+            padding: 10px;
             border-radius: 6px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
         }
@@ -116,27 +116,44 @@
         }
         
         .cell { 
-            width: 28px; 
-            height: 28px; 
+            width: 26px; 
+            height: 26px; 
             position: relative; 
             cursor: pointer; 
         }
         
-        /* 棋盘线条 - 确保正方形 */
+        /* 棋盘线条 - 统一连续 */
         .cell::before, .cell::after { 
             content: ''; 
             position: absolute; 
             background: #8b6914; 
+            z-index: 0;
         }
-        .cell::before { width: 1px; height: 100%; left: 50%; top: 0; }
-        .cell::after { width: 100%; height: 1px; left: 0; top: 50%; }
+        
+        /* 垂直线 - 所有格子都画完整 */
+        .cell::before { 
+            width: 1px; 
+            height: 100%; 
+            left: 50%; 
+            top: 0; 
+            transform: translateX(-50%);
+        }
+        
+        /* 水平线 - 所有格子都画完整 */
+        .cell::after { 
+            width: 100%; 
+            height: 1px; 
+            left: 0; 
+            top: 50%; 
+            transform: translateY(-50%);
+        }
         
         /* 预览标记 */
         .cell.preview::after {
             content: '';
             position: absolute;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -164,7 +181,7 @@
         }
         
         .cell.preview .preview-cross::before {
-            width: 12px;
+            width: 10px;
             height: 2px;
             top: 50%;
             left: 50%;
@@ -173,7 +190,7 @@
         
         .cell.preview .preview-cross::after {
             width: 2px;
-            height: 12px;
+            height: 10px;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -181,8 +198,8 @@
         
         .piece {
             position: absolute;
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             top: 50%;
             left: 50%;
@@ -304,14 +321,18 @@
         }
         
         @media (max-width: 600px) {
-            .cell { width: 22px; height: 22px; }
-            .piece { width: 18px; height: 18px; }
+            .cell { width: 20px; height: 20px; }
+            .piece { width: 16px; height: 16px; }
             header h1 { font-size: 1.4em; }
             .players-row { gap: 12px; }
             .player-info { padding: 8px 12px; min-width: 100px; }
             .player-info .name { font-size: 12px; }
             .player-info .time { font-size: 14px; }
             .btn { padding: 6px 12px; font-size: 11px; }
+            .board::before {
+                background-size: 20px 20px;
+                background-position: 9px 9px;
+            }
         }
     </style>
 </head>
@@ -914,7 +935,7 @@
             const size = GameState.boardSize;
             
             board.innerHTML = '';
-            board.style.gridTemplateColumns = `repeat(${size}, 28px)`;
+            board.style.gridTemplateColumns = `repeat(${size}, 26px)`;
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
