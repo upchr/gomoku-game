@@ -52,8 +52,6 @@
         .menu-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         
         .game-screen { display: none; }
-        
-        /* 隐藏对局记录（对战时） */
         .game-screen.active + .history-panel { display: none !important; }
         
         /* 玩家信息一行显示 */
@@ -81,6 +79,7 @@
         .player-info .name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
         .player-info .time { font-size: 18px; font-family: 'Courier New', monospace; }
         .player-info .pieces { font-size: 11px; color: #aaa; margin-top: 2px; }
+        .player-info .undo-count { font-size: 10px; color: #f39c12; margin-top: 2px; }
         
         .vs-indicator {
             font-size: 16px;
@@ -100,12 +99,21 @@
             font-size: 13px;
         }
         
-        /* 棋盘居中 - 正方形网格 */
-        .board-container { 
-            display: flex; 
-            justify-content: center; 
-            margin: 10px 0; 
+        /* 比分显示 */
+        .score-display {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #aaa;
         }
+        
+        .score-display .match-info {
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        /* 棋盘 */
+        .board-container { display: flex; justify-content: center; margin: 10px 0; }
         
         .board {
             background: #d4a574;
@@ -115,28 +123,13 @@
             position: relative;
         }
         
-        .board-grid { 
-            display: grid; 
-            gap: 0;
-            position: relative;
-            z-index: 1;
-        }
+        .board-grid { display: grid; gap: 0; position: relative; z-index: 1; }
         
-        .cell { 
-            width: 28px; 
-            height: 28px; 
-            position: relative; 
-            cursor: pointer; 
-            background: transparent;
-        }
+        .cell { width: 28px; height: 28px; position: relative; cursor: pointer; background: transparent; }
         
-        /* 使用背景绘制连续网格线 */
         .board-lines {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             pointer-events: none;
             z-index: 0;
         }
@@ -145,10 +138,8 @@
         .cell.preview::after {
             content: '';
             position: absolute;
-            width: 22px;
-            height: 22px;
-            top: 50%;
-            left: 50%;
+            width: 22px; height: 22px;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             border: 2px dashed rgba(231, 76, 60, 0.8);
             border-radius: 50%;
@@ -158,10 +149,8 @@
         
         .cell.preview .preview-cross {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
             z-index: 7;
         }
         
@@ -170,39 +159,39 @@
             content: '';
             position: absolute;
             background: rgba(231, 76, 60, 0.8);
-            border: none;
         }
         
         .cell.preview .preview-cross::before {
-            width: 12px;
-            height: 2px;
-            top: 50%;
-            left: 50%;
+            width: 12px; height: 2px;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
         }
         
         .cell.preview .preview-cross::after {
-            width: 2px;
-            height: 12px;
-            top: 50%;
-            left: 50%;
+            width: 2px; height: 12px;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
         }
         
         .piece {
             position: absolute;
-            width: 24px;
-            height: 24px;
+            width: 24px; height: 24px;
             border-radius: 50%;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
+            transition: all 0.15s ease;
         }
         
         .piece.black { background: radial-gradient(circle at 30% 30%, #555, #000); box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
         .piece.white { background: radial-gradient(circle at 30% 30%, #fff, #ccc); box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
         .piece.last-move::after { content: ''; position: absolute; width: 6px; height: 6px; background: #e74c3c; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .piece.winning { animation: pulse 0.5s ease infinite alternate; }
+        
+        @keyframes pulse {
+            from { box-shadow: 0 0 5px #e74c3c; }
+            to { box-shadow: 0 0 15px #e74c3c, 0 0 25px #e74c3c; }
+        }
         
         .controls { display: flex; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
         
@@ -213,6 +202,7 @@
         .btn-warning { background: #f39c12; color: #fff; }
         .btn:hover { opacity: 0.9; transform: translateY(-1px); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
         
         .modal-panel {
             display: none;
@@ -272,7 +262,7 @@
         @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
         
         .win-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
-        .win-content { background: linear-gradient(135deg, #2c3e50, #34495e); padding: 40px; border-radius: 15px; text-align: center; }
+        .win-content { background: linear-gradient(135deg, #2c3e50, #34495e); padding: 40px; border-radius: 15px; text-align: center; max-width: 400px; }
         .win-content .winner-name { color: #2ecc71; font-size: 24px; margin: 15px 0; }
         
         .undo-request-modal {
@@ -296,21 +286,130 @@
         .undo-request-content h3 { margin-bottom: 12px; }
         .undo-request-content p { color: #aaa; margin-bottom: 15px; font-size: 14px; }
         
-        /* 比分显示 */
-        .score-display {
-            text-align: center;
-            margin-bottom: 10px;
+        /* 快捷消息和表情 */
+        .chat-bar {
+            display: none;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        
+        .chat-bar .quick-msg {
+            padding: 6px 12px;
+            background: rgba(52, 152, 219, 0.3);
+            border: none;
+            border-radius: 15px;
+            color: #fff;
             font-size: 12px;
-            color: #aaa;
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
-        .score-display span {
-            margin: 0 15px;
+        .chat-bar .quick-msg:hover {
+            background: rgba(52, 152, 219, 0.5);
         }
         
-        .score-display .win-count {
-            color: #2ecc71;
-            font-weight: bold;
+        .chat-bar .emoji-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .chat-bar .emoji-btn:hover {
+            transform: scale(1.2);
+        }
+        
+        /* 表情弹窗 */
+        .emoji-popup {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            padding: 15px;
+            border-radius: 12px;
+            display: none;
+            z-index: 1500;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        
+        .emoji-popup .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+        }
+        
+        .emoji-popup .emoji-item {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .emoji-popup .emoji-item:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.1);
+        }
+        
+        /* 消息提示 */
+        .message-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            z-index: 4000;
+            animation: fadeInOut 3s forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        }
+        
+        /* 断线重连提示 */
+        .reconnect-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 5000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .reconnect-overlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         
         @media (max-width: 600px) {
@@ -341,15 +440,17 @@
         <div class="game-screen" id="gameScreen">
             <!-- 比分显示 -->
             <div class="score-display" id="scoreDisplay" style="display:none">
-                <span id="player1Score">0</span> : <span id="player2Score">0</span>
+                <span class="match-info" id="matchInfo">第 1 局</span>
+                | 比分 <span id="scoreP1">0</span> : <span id="scoreP2">0</span>
             </div>
             
-            <!-- 玩家信息一行显示 -->
+            <!-- 玩家信息 -->
             <div class="players-row">
                 <div class="player-info" id="player1Info">
                     <div class="name">⚫ <span id="player1Name">黑方</span></div>
                     <div class="time" id="player1Time">05:00</div>
                     <div class="pieces">落子: <span id="player1Moves">0</span></div>
+                    <div class="undo-count" id="player1Undo">悔棋: 3次</div>
                 </div>
                 
                 <div class="vs-indicator">
@@ -361,6 +462,7 @@
                     <div class="name">⚪ <span id="player2Name">白方</span></div>
                     <div class="time" id="player2Time">05:00</div>
                     <div class="pieces">落子: <span id="player2Moves">0</span></div>
+                    <div class="undo-count" id="player2Undo">悔棋: 3次</div>
                 </div>
             </div>
             
@@ -378,7 +480,35 @@
                 <button class="btn btn-warning" id="undoBtn" onclick="requestUndo()">悔棋</button>
                 <button class="btn btn-danger" onclick="surrender()">认输</button>
                 <button class="btn btn-success" id="restartBtn" onclick="restartGame()">再来一局</button>
+                <button class="btn btn-primary" onclick="exportGame()">导出棋谱</button>
                 <button class="btn btn-primary" onclick="exitRoom()">退出房间</button>
+            </div>
+            
+            <!-- 快捷消息和表情 -->
+            <div class="chat-bar" id="chatBar">
+                <button class="quick-msg" onclick="sendQuickMsg('你好！')">你好！</button>
+                <button class="quick-msg" onclick="sendQuickMsg('请稍等')">请稍等</button>
+                <button class="quick-msg" onclick="sendQuickMsg('好棋！')">好棋！</button>
+                <button class="quick-msg" onclick="sendQuickMsg('GG')">GG</button>
+                <button class="emoji-btn" onclick="toggleEmojiPopup()">😊</button>
+            </div>
+        </div>
+        
+        <!-- 表情弹窗 -->
+        <div class="emoji-popup" id="emojiPopup">
+            <div class="emoji-grid">
+                <button class="emoji-item" onclick="sendEmoji('😊')">😊</button>
+                <button class="emoji-item" onclick="sendEmoji('👍')">👍</button>
+                <button class="emoji-item" onclick="sendEmoji('👏')">👏</button>
+                <button class="emoji-item" onclick="sendEmoji('🤔')">🤔</button>
+                <button class="emoji-item" onclick="sendEmoji('😅')">😅</button>
+                <button class="emoji-item" onclick="sendEmoji('😎')">😎</button>
+                <button class="emoji-item" onclick="sendEmoji('🎉')">🎉</button>
+                <button class="emoji-item" onclick="sendEmoji('💪')">💪</button>
+                <button class="emoji-item" onclick="sendEmoji('🙏')">🙏</button>
+                <button class="emoji-item" onclick="sendEmoji('😤')">😤</button>
+                <button class="emoji-item" onclick="sendEmoji('😱')">😱</button>
+                <button class="emoji-item" onclick="sendEmoji('💀')">💀</button>
             </div>
         </div>
         
@@ -386,6 +516,12 @@
             <h3 style="margin-bottom: 12px;">📋 对局记录</h3>
             <div id="historyList"></div>
         </div>
+    </div>
+    
+    <!-- 断线重连 -->
+    <div class="reconnect-overlay" id="reconnectOverlay">
+        <div class="spinner"></div>
+        <p>连接断开，正在重连...</p>
     </div>
     
     <!-- 本地对战设置 -->
@@ -407,8 +543,6 @@
                     <option value="180">3分钟</option>
                     <option value="300" selected>5分钟</option>
                     <option value="600">10分钟</option>
-                    <option value="900">15分钟</option>
-                    <option value="1800">30分钟</option>
                 </select>
             </div>
             <div class="form-group">
@@ -417,8 +551,15 @@
                     <option value="13">13×13</option>
                     <option value="15" selected>15×15</option>
                     <option value="19">19×19</option>
-                    <option value="21">21×21</option>
-                    <option value="25">25×25</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>悔棋次数</label>
+                <select id="undoLimit">
+                    <option value="1">1次</option>
+                    <option value="3" selected>3次</option>
+                    <option value="5">5次</option>
+                    <option value="999">无限</option>
                 </select>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -469,7 +610,6 @@
                     <option value="0">不限时</option>
                     <option value="300" selected>5分钟</option>
                     <option value="600">10分钟</option>
-                    <option value="900">15分钟</option>
                 </select>
             </div>
             <div class="form-group">
@@ -478,7 +618,22 @@
                     <option value="13">13×13</option>
                     <option value="15" selected>15×15</option>
                     <option value="19">19×19</option>
-                    <option value="21">21×21</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>比赛模式</label>
+                <select id="matchMode">
+                    <option value="1">单局决胜</option>
+                    <option value="3">三局两胜</option>
+                    <option value="5">五局三胜</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>悔棋次数</label>
+                <select id="onlineUndoLimit">
+                    <option value="1">1次</option>
+                    <option value="3" selected>3次</option>
+                    <option value="5">5次</option>
                 </select>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -528,9 +683,7 @@
         <div class="win-content">
             <h2>🎉 游戏结束</h2>
             <div class="winner-name" id="winnerName">黑方 获胜!</div>
-            <div style="margin-bottom: 15px; color: #aaa; font-size: 13px;">
-                用时: <span id="totalTime">0</span> 秒 | 总步数: <span id="totalMoves">0</span> 步
-            </div>
+            <div style="margin-bottom: 15px; color: #aaa; font-size: 13px;" id="matchResult"></div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-success" style="flex:1" onclick="playAgain()">再来一局</button>
                 <button class="btn btn-primary" style="flex:1" onclick="closeWinModal()">继续查看</button>
@@ -556,13 +709,18 @@
         
         let ws = null;
         let wsConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT = 5;
         
         // ==================== 游戏状态 ====================
         const GameState = {
             board: [],
             boardSize: 15,
             currentPlayer: 1,
-            players: { 1: { name: '黑方', time: 300, moves: 0 }, 2: { name: '白方', time: 300, moves: 0 } },
+            players: { 
+                1: { name: '黑方', time: 300, moves: 0, undoLeft: 3 }, 
+                2: { name: '白方', time: 300, moves: 0, undoLeft: 3 } 
+            },
             gameTime: 300,
             gameMode: 'local',
             isPlaying: false,
@@ -575,10 +733,14 @@
             pendingRoomCode: '',
             previewCell: null,
             undoRequested: false,
-            // 房间内比分
-            scores: { 1: 0, 2: 0 },
-            // 房间信息（用于继续对战）
-            roomInfo: null
+            // 比赛模式
+            matchMode: 1, // 1=单局, 3=三局两胜, 5=五局三胜
+            matchWins: { 1: 0, 2: 0 },
+            currentRound: 1,
+            // 悔棋限制
+            undoLimit: 3,
+            // 胜利连线
+            winningLine: []
         };
         
         // ==================== 初始化 ====================
@@ -592,6 +754,13 @@
                 showOnlinePanel();
                 refreshRoomList();
             }
+            
+            // 点击其他地方关闭表情弹窗
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.emoji-btn') && !e.target.closest('.emoji-popup')) {
+                    document.getElementById('emojiPopup').style.display = 'none';
+                }
+            });
         });
         
         // ==================== WebSocket ====================
@@ -607,13 +776,20 @@
                     
                     ws.onopen = () => {
                         wsConnected = true;
+                        reconnectAttempts = 0;
                         updateConnectionStatus(true);
+                        document.getElementById('reconnectOverlay').style.display = 'none';
                         resolve();
                     };
                     
                     ws.onclose = () => {
                         wsConnected = false;
                         updateConnectionStatus(false);
+                        
+                        // 断线重连
+                        if (GameState.gameMode === 'online' && GameState.isPlaying && reconnectAttempts < MAX_RECONNECT) {
+                            showReconnect();
+                        }
                     };
                     
                     ws.onerror = (err) => {
@@ -634,6 +810,32 @@
             });
         }
         
+        function showReconnect() {
+            document.getElementById('reconnectOverlay').style.display = 'flex';
+            reconnectAttempts++;
+            
+            setTimeout(async () => {
+                try {
+                    await connectWebSocket();
+                    // 重新加入房间
+                    if (GameState.roomCode) {
+                        sendToServer({
+                            type: 'rejoin_room',
+                            roomCode: GameState.roomCode,
+                            playerName: GameState.myName
+                        });
+                    }
+                } catch (err) {
+                    if (reconnectAttempts < MAX_RECONNECT) {
+                        showReconnect();
+                    } else {
+                        alert('重连失败，请刷新页面');
+                        backToMenu();
+                    }
+                }
+            }, 2000);
+        }
+        
         function updateConnectionStatus(connected) {
             const indicator = document.getElementById('onlineIndicator');
             if (indicator) {
@@ -645,8 +847,6 @@
         function sendToServer(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(data));
-            } else {
-                alert('未连接到服务器');
             }
         }
         
@@ -661,8 +861,11 @@
                 case 'opponent_left': handleOpponentLeft(data); break;
                 case 'undo_request': handleUndoRequest(data); break;
                 case 'undo_accepted': handleUndoAccepted(data); break;
-                case 'undo_rejected': alert('对手拒绝了悔棋请求'); break;
+                case 'undo_rejected': showToast('对手拒绝了悔棋请求'); break;
                 case 'play_again': handlePlayAgain(data); break;
+                case 'quick_msg': showToast(`${data.playerName}: ${data.message}`); break;
+                case 'emoji': showEmojiAnimation(data.emoji, data.playerColor); break;
+                case 'rejoined': handleRejoined(data); break;
                 case 'error': alert('错误: ' + data.message); break;
             }
         }
@@ -690,7 +893,8 @@
         function backToMenu() {
             stopTimer();
             GameState.isPlaying = false;
-            GameState.scores = { 1: 0, 2: 0 };
+            GameState.matchWins = { 1: 0, 2: 0 };
+            GameState.currentRound = 1;
             clearPreview();
             if (ws) { ws.close(); ws = null; }
             document.getElementById('gameScreen').style.display = 'none';
@@ -699,10 +903,44 @@
             document.getElementById('winModal').style.display = 'none';
             document.getElementById('onlineIndicator').style.display = 'none';
             document.getElementById('scoreDisplay').style.display = 'none';
+            document.getElementById('chatBar').style.display = 'none';
+            document.getElementById('reconnectOverlay').style.display = 'none';
         }
         
         function closeWinModal() {
             document.getElementById('winModal').style.display = 'none';
+        }
+        
+        // ==================== Toast 消息 ====================
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'message-toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        // ==================== 表情 ====================
+        function toggleEmojiPopup() {
+            const popup = document.getElementById('emojiPopup');
+            popup.style.display = popup.style.display === 'grid' ? 'none' : 'grid';
+        }
+        
+        function sendEmoji(emoji) {
+            document.getElementById('emojiPopup').style.display = 'none';
+            sendToServer({ type: 'emoji', emoji });
+            showEmojiAnimation(emoji, GameState.myColor);
+        }
+        
+        function showEmojiAnimation(emoji, playerColor) {
+            showToast(`${playerColor === 1 ? '⚫' : '⚪'} ${emoji}`);
+        }
+        
+        // ==================== 快捷消息 ====================
+        function sendQuickMsg(msg) {
+            sendToServer({ type: 'quick_msg', message: msg });
+            showToast(`你: ${msg}`);
         }
         
         // ==================== 本地对战 ====================
@@ -711,6 +949,11 @@
             const player2 = document.getElementById('localPlayer2').value || '玩家2';
             const time = parseInt(document.getElementById('gameTime').value);
             const size = parseInt(document.getElementById('boardSize').value);
+            const undoLimit = parseInt(document.getElementById('undoLimit').value);
+            
+            GameState.undoLimit = undoLimit;
+            GameState.matchMode = 1;
+            
             initGame('local', { player1, player2, time, size });
             closePanel('localSetupPanel');
         }
@@ -737,8 +980,11 @@
             
             listEl.innerHTML = data.rooms.map(room => `
                 <div class="room-item" onclick="selectRoom('${room.code}', ${room.hasPassword})">
-                    <div><div class="code">${room.code}</div><div class="host">房主: ${room.hostName}</div></div>
-                    <div class="status ${room.hasPassword ? 'locked' : 'waiting'}">${room.hasPassword ? '🔒 加密' : '🟢 等待中'}</div>
+                    <div>
+                        <div class="code">${room.code}</div>
+                        <div class="host">房主: ${room.hostName} | ${room.matchMode === 1 ? '单局' : room.matchMode + '局'}</div>
+                    </div>
+                    <div class="status ${room.hasPassword ? 'locked' : 'waiting'}">${room.hasPassword ? '🔒' : '🟢'}</div>
                 </div>
             `).join('');
         }
@@ -795,20 +1041,27 @@
             const password = document.getElementById('createRoomPassword').value;
             const time = parseInt(document.getElementById('onlineGameTime').value);
             const size = parseInt(document.getElementById('onlineBoardSize').value);
+            const matchMode = parseInt(document.getElementById('matchMode').value);
+            const undoLimit = parseInt(document.getElementById('onlineUndoLimit').value);
             
             try {
                 await connectWebSocket();
                 GameState.myName = nickname;
                 GameState.gameTime = time;
                 GameState.boardSize = size;
-                GameState.scores = { 1: 0, 2: 0 };
+                GameState.matchMode = matchMode;
+                GameState.undoLimit = undoLimit;
+                GameState.matchWins = { 1: 0, 2: 0 };
+                GameState.currentRound = 1;
                 
                 sendToServer({
                     type: 'create_room',
                     playerName: nickname,
                     password: password,
                     gameTime: time,
-                    boardSize: size
+                    boardSize: size,
+                    matchMode: matchMode,
+                    undoLimit: undoLimit
                 });
                 
                 closePanel('createRoomPanel');
@@ -841,7 +1094,10 @@
             GameState.roomCode = data.roomCode;
             GameState.myColor = data.color;
             GameState.myName = document.getElementById('onlineNickname').value || '玩家';
-            GameState.scores = { 1: 0, 2: 0 };
+            GameState.matchMode = data.matchMode || 1;
+            GameState.undoLimit = data.undoLimit || 3;
+            GameState.matchWins = { 1: 0, 2: 0 };
+            GameState.currentRound = 1;
             
             initGame('online', {
                 player1: data.color === 1 ? GameState.myName : data.opponent.name,
@@ -853,14 +1109,48 @@
         
         function handleOpponentJoined(data) {
             closePanel('waitingPanel');
-            GameState.scores = { 1: 0, 2: 0 };
-            GameState.players[2] = { name: data.opponent.name, time: GameState.gameTime, moves: 0 };
+            GameState.matchWins = { 1: 0, 2: 0 };
+            GameState.currentRound = 1;
+            GameState.players[2] = { name: data.opponent.name, time: GameState.gameTime, moves: 0, undoLeft: GameState.undoLimit };
             initGame('online', {
                 player1: GameState.myName,
                 player2: data.opponent.name,
                 time: GameState.gameTime,
                 size: GameState.boardSize
             });
+        }
+        
+        function handleRejoined(data) {
+            // 断线重连后恢复游戏状态
+            GameState.board = data.board;
+            GameState.currentPlayer = data.currentPlayer;
+            GameState.moveHistory = data.moves;
+            GameState.players = data.players;
+            
+            renderBoardFromState();
+            updateUI();
+        }
+        
+        function renderBoardFromState() {
+            renderBoard();
+            
+            // 重新绘制所有棋子
+            for (const move of GameState.moveHistory) {
+                const cell = document.querySelector(`.cell[data-row="${move.row}"][data-col="${move.col}"]`);
+                if (cell) {
+                    const piece = document.createElement('div');
+                    piece.className = `piece ${move.player === 1 ? 'black' : 'white'}`;
+                    cell.appendChild(piece);
+                    cell.classList.add('has-piece');
+                }
+            }
+            
+            // 标记最后一手
+            if (GameState.moveHistory.length > 0) {
+                const last = GameState.moveHistory[GameState.moveHistory.length - 1];
+                const lastPiece = document.querySelector(`.cell[data-row="${last.row}"][data-col="${last.col}"] .piece`);
+                if (lastPiece) lastPiece.classList.add('last-move');
+            }
         }
         
         function cancelWaiting() {
@@ -879,8 +1169,20 @@
             GameState.startTime = Date.now();
             GameState.previewCell = null;
             GameState.undoRequested = false;
-            GameState.players[1] = { name: config.player1, time: config.time, moves: 0 };
-            GameState.players[2] = { name: config.player2, time: config.time, moves: 0 };
+            GameState.winningLine = [];
+            
+            GameState.players[1] = { 
+                name: config.player1, 
+                time: config.time, 
+                moves: 0, 
+                undoLeft: GameState.undoLimit 
+            };
+            GameState.players[2] = { 
+                name: config.player2, 
+                time: config.time, 
+                moves: 0, 
+                undoLeft: GameState.undoLimit 
+            };
             
             GameState.board = [];
             for (let i = 0; i < config.size; i++) {
@@ -899,34 +1201,37 @@
             if (mode === 'online') {
                 document.getElementById('onlineIndicator').style.display = 'inline-block';
                 document.getElementById('scoreDisplay').style.display = 'block';
+                document.getElementById('chatBar').style.display = 'flex';
                 document.getElementById('player1Info').classList.toggle('me', GameState.myColor === 1);
                 document.getElementById('player2Info').classList.toggle('me', GameState.myColor === 2);
-                updateScoreDisplay();
+                updateMatchInfo();
             } else {
                 document.getElementById('onlineIndicator').style.display = 'none';
                 document.getElementById('scoreDisplay').style.display = 'none';
+                document.getElementById('chatBar').style.display = 'none';
                 document.getElementById('player1Info').classList.remove('me');
                 document.getElementById('player2Info').classList.remove('me');
             }
             
             renderBoard();
+            updateUndoDisplay();
             updateUI();
             if (config.time > 0) startTimer();
         }
         
-        function updateScoreDisplay() {
-            // 玩家1的胜场
-            const p1Wins = GameState.myColor === 1 ? GameState.scores[1] : GameState.scores[2];
-            const p2Wins = GameState.myColor === 1 ? GameState.scores[2] : GameState.scores[1];
-            document.getElementById('player1Score').textContent = p1Wins;
-            document.getElementById('player2Score').textContent = p2Wins;
+        function updateMatchInfo() {
+            const targetWins = Math.ceil(GameState.matchMode / 2);
+            document.getElementById('matchInfo').textContent = 
+                `第 ${GameState.currentRound} 局 (${GameState.matchWins[1]}:${GameState.matchWins[2]} / ${targetWins}胜)`;
+            document.getElementById('scoreP1').textContent = GameState.matchWins[1];
+            document.getElementById('scoreP2').textContent = GameState.matchWins[2];
         }
         
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
             const cellSize = 28;
-            const padding = 14; // 半个格子的边距
+            const padding = 14;
             
             board.innerHTML = '';
             
@@ -943,17 +1248,14 @@
             ctx.strokeStyle = '#8b6914';
             ctx.lineWidth = 1;
             
-            // 绘制网格线
             for (let i = 0; i < size; i++) {
                 const pos = padding + i * cellSize;
                 
-                // 垂直线
                 ctx.beginPath();
                 ctx.moveTo(pos, padding);
                 ctx.lineTo(pos, totalSize - padding);
                 ctx.stroke();
                 
-                // 水平线
                 ctx.beginPath();
                 ctx.moveTo(padding, pos);
                 ctx.lineTo(totalSize - padding, pos);
@@ -962,7 +1264,7 @@
             
             board.appendChild(linesCanvas);
             
-            // 创建格子网格
+            // 创建格子
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
@@ -989,9 +1291,7 @@
             if (!GameState.isPlaying) return;
             if (GameState.board[row][col] !== 0) return;
             
-            if (GameState.gameMode === 'online' && GameState.currentPlayer !== GameState.myColor) {
-                return;
-            }
+            if (GameState.gameMode === 'online' && GameState.currentPlayer !== GameState.myColor) return;
             
             const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
             
@@ -1041,8 +1341,18 @@
             GameState.moveHistory.push({ row, col, player });
             updateCell(row, col);
             
-            if (checkWin(row, col, player)) { endGame(player); return; }
-            if (GameState.moveHistory.length === GameState.boardSize * GameState.boardSize) { endGame(0); return; }
+            const winResult = checkWin(row, col, player);
+            if (winResult) {
+                GameState.winningLine = winResult;
+                highlightWinningLine();
+                endGame(player);
+                return;
+            }
+            
+            if (GameState.moveHistory.length === GameState.boardSize * GameState.boardSize) {
+                endGame(0);
+                return;
+            }
             
             GameState.currentPlayer = GameState.currentPlayer === 1 ? 2 : 1;
             updateUI();
@@ -1065,21 +1375,48 @@
         }
         
         function checkWin(row, col, player) {
-            const directions = [[[0, 1], [0, -1]], [[1, 0], [-1, 0]], [[1, 1], [-1, -1]], [[1, -1], [-1, 1]]];
+            const directions = [
+                [[0, 1], [0, -1]],
+                [[1, 0], [-1, 0]],
+                [[1, 1], [-1, -1]],
+                [[1, -1], [-1, 1]]
+            ];
+            
             for (const dir of directions) {
                 let count = 1;
+                const line = [{ row, col }];
+                
                 for (const [dr, dc] of dir) {
                     let r = row + dr, c = col + dc;
-                    while (r >= 0 && r < GameState.boardSize && c >= 0 && c < GameState.boardSize && GameState.board[r][c] === player) { count++; r += dr; c += dc; }
+                    while (r >= 0 && r < GameState.boardSize && c >= 0 && c < GameState.boardSize && GameState.board[r][c] === player) {
+                        count++;
+                        line.push({ row: r, col: c });
+                        r += dr;
+                        c += dc;
+                    }
                 }
-                if (count >= 5) return true;
+                
+                if (count >= 5) return line;
             }
-            return false;
+            
+            return null;
         }
         
-        function handleGameOver(data) { 
-            GameState.scores[data.winner] = (GameState.scores[data.winner] || 0) + 1;
-            endGame(data.winner); 
+        function highlightWinningLine() {
+            for (const pos of GameState.winningLine) {
+                const cell = document.querySelector(`.cell[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                if (cell) {
+                    const piece = cell.querySelector('.piece');
+                    if (piece) piece.classList.add('winning');
+                }
+            }
+        }
+        
+        function handleGameOver(data) {
+            if (data.winner > 0) {
+                GameState.matchWins[data.winner]++;
+            }
+            endGame(data.winner);
         }
         
         function endGame(winner) {
@@ -1088,23 +1425,44 @@
             clearPreview();
             
             const winnerName = document.getElementById('winnerName');
-            if (winner === 0) { winnerName.textContent = '平局!'; winnerName.style.color = '#f39c12'; }
-            else { winnerName.textContent = `${GameState.players[winner].name} 获胜!`; winnerName.style.color = '#2ecc71'; }
+            if (winner === 0) {
+                winnerName.textContent = '平局!';
+                winnerName.style.color = '#f39c12';
+            } else {
+                winnerName.textContent = `${GameState.players[winner].name} 获胜!`;
+                winnerName.style.color = '#2ecc71';
+            }
             
-            document.getElementById('totalTime').textContent = Math.floor((Date.now() - GameState.startTime) / 1000);
-            document.getElementById('totalMoves').textContent = GameState.moveHistory.length;
+            // 比赛结果
+            const targetWins = Math.ceil(GameState.matchMode / 2);
+            let resultText = `本局: ${GameState.moveHistory.length} 步`;
+            
+            if (GameState.matchMode > 1) {
+                if (GameState.matchWins[1] >= targetWins || GameState.matchWins[2] >= targetWins) {
+                    const matchWinner = GameState.matchWins[1] >= targetWins ? 1 : 2;
+                    resultText += ` | ${GameState.players[matchWinner].name} 赢得比赛!`;
+                    // 重置比分
+                    GameState.matchWins = { 1: 0, 2: 0 };
+                    GameState.currentRound = 1;
+                } else {
+                    resultText += ` | 比分 ${GameState.matchWins[1]}:${GameState.matchWins[2]}`;
+                }
+            }
+            
+            document.getElementById('matchResult').textContent = resultText;
+            
             saveGameHistory(winner);
             
             if (GameState.gameMode === 'online') {
-                updateScoreDisplay();
+                updateMatchInfo();
             }
             
             document.getElementById('winModal').style.display = 'flex';
         }
         
-        function handleOpponentLeft(data) { 
-            alert('对手已离开房间'); 
-            backToMenu(); 
+        function handleOpponentLeft(data) {
+            alert('对手已离开房间');
+            backToMenu();
         }
         
         function updateUI() {
@@ -1115,28 +1473,44 @@
             
             const status = document.getElementById('gameStatus');
             if (GameState.gameMode === 'online') {
-                status.textContent = GameState.currentPlayer === GameState.myColor ? '轮到你 - 点击选择，再次点击确认' : '等待对手...';
+                status.textContent = GameState.currentPlayer === GameState.myColor ? '轮到你' : '等待对手...';
             } else {
                 status.textContent = `${GameState.players[GameState.currentPlayer].name} 落子`;
             }
+        }
+        
+        function updateUndoDisplay() {
+            document.getElementById('player1Undo').textContent = `悔棋: ${GameState.players[1].undoLeft}次`;
+            document.getElementById('player2Undo').textContent = `悔棋: ${GameState.players[2].undoLeft}次`;
         }
         
         // ==================== 再来一局 ====================
         function playAgain() {
             document.getElementById('winModal').style.display = 'none';
             
+            // 交换先后手
+            const temp = GameState.players[1].name;
+            GameState.players[1].name = GameState.players[2].name;
+            GameState.players[2].name = temp;
+            
+            GameState.currentRound++;
+            
             if (GameState.gameMode === 'online') {
-                // 在线模式发送再来一局请求
                 sendToServer({ type: 'play_again' });
             } else {
-                // 本地模式直接重开
                 restartGame();
             }
         }
         
         function handlePlayAgain(data) {
-            // 收到对手的再来一局请求，直接开始新一局
-            initGame('online', {
+            // 交换先后手
+            const temp = GameState.players[1].name;
+            GameState.players[1].name = GameState.players[2].name;
+            GameState.players[2].name = temp;
+            
+            GameState.currentRound++;
+            
+            initGame(GameState.gameMode, {
                 player1: GameState.players[1].name,
                 player2: GameState.players[2].name,
                 time: GameState.gameTime,
@@ -1157,17 +1531,33 @@
         // ==================== 悔棋功能 ====================
         function requestUndo() {
             if (GameState.moveHistory.length === 0) {
-                alert('没有可以悔棋的步骤');
+                showToast('没有可以悔棋的步骤');
                 return;
+            }
+            
+            const myUndoLeft = GameState.players[GameState.myColor].undoLeft;
+            if (myUndoLeft <= 0 && GameState.gameMode !== 'local') {
+                showToast('悔棋次数已用完');
+                return;
+            }
+            
+            // 检查是否悔自己的棋（上一步是自己下的）
+            const lastMove = GameState.moveHistory[GameState.moveHistory.length - 1];
+            if (GameState.gameMode === 'online') {
+                // 在线模式：只能悔对手刚下的棋（轮到自己时）
+                if (lastMove.player === GameState.myColor) {
+                    showToast('只能请求悔对手刚下的棋');
+                    return;
+                }
             }
             
             if (GameState.gameMode === 'online') {
                 if (GameState.undoRequested) {
-                    alert('已有待处理的悔棋请求');
+                    showToast('已有待处理的悔棋请求');
                     return;
                 }
                 sendToServer({ type: 'undo_request' });
-                alert('已发送悔棋请求，等待对手同意...');
+                showToast('已发送悔棋请求');
             } else {
                 doUndo();
             }
@@ -1181,6 +1571,11 @@
             GameState.players[lastMove.player].moves--;
             GameState.currentPlayer = lastMove.player;
             
+            // 消耗悔棋次数
+            if (GameState.gameMode === 'online') {
+                GameState.players[GameState.myColor].undoLeft--;
+            }
+            
             const cell = document.querySelector(`.cell[data-row="${lastMove.row}"][data-col="${lastMove.col}"]`);
             cell.innerHTML = '';
             cell.classList.remove('has-piece');
@@ -1193,6 +1588,7 @@
             }
             
             clearPreview();
+            updateUndoDisplay();
             updateUI();
         }
         
@@ -1206,6 +1602,11 @@
             sendToServer({ type: 'undo_accept' });
             GameState.undoRequested = false;
             document.getElementById('undoRequestModal').style.display = 'none';
+            
+            // 消耗悔棋次数（对手的）
+            const opponentColor = GameState.myColor === 1 ? 2 : 1;
+            GameState.players[opponentColor].undoLeft--;
+            updateUndoDisplay();
         }
         
         function rejectUndo() {
@@ -1227,9 +1628,13 @@
                 GameState.currentPlayer = lastMove.player;
             }
             
+            // 消耗悔棋次数
+            GameState.players[GameState.myColor].undoLeft--;
+            
             clearPreview();
+            updateUndoDisplay();
             updateUI();
-            alert('悔棋成功！');
+            showToast('悔棋成功！');
         }
         
         // ==================== 计时器 ====================
@@ -1239,7 +1644,11 @@
                 if (!GameState.isPlaying) return;
                 GameState.players[GameState.currentPlayer].time--;
                 updateTimerDisplay();
-                if (GameState.players[GameState.currentPlayer].time <= 0) endGame(GameState.currentPlayer === 1 ? 2 : 1);
+                if (GameState.players[GameState.currentPlayer].time <= 0) {
+                    const winner = GameState.currentPlayer === 1 ? 2 : 1;
+                    // 不消耗悔棋次数
+                    endGame(winner);
+                }
             }, 1000);
         }
         
@@ -1259,21 +1668,75 @@
             else endGame(GameState.currentPlayer === 1 ? 2 : 1);
         }
         
+        // ==================== 导出棋谱 ====================
+        function exportGame() {
+            if (GameState.moveHistory.length === 0) {
+                showToast('没有棋谱可导出');
+                return;
+            }
+            
+            // 生成SGF格式棋谱
+            let sgf = `(;GM[4]FF[4]CA[UTF-8]`;
+            sgf += `SZ[${GameState.boardSize}]`;
+            sgf += `PB[${GameState.players[1].name}]`;
+            sgf += `PW[${GameState.players[2].name}]`;
+            sgf += `DT[${new Date().toLocaleDateString()}]`;
+            
+            for (const move of GameState.moveHistory) {
+                const col = String.fromCharCode(97 + move.col);
+                const row = String.fromCharCode(97 + move.row);
+                sgf += `;${move.player === 1 ? 'B' : 'W'}[${col}${row}]`;
+            }
+            
+            sgf += `)`;
+            
+            // 下载文件
+            const blob = new Blob([sgf], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gomoku_${new Date().toISOString().slice(0, 10)}.sgf`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('棋谱已导出');
+        }
+        
         // ==================== 对局记录 ====================
         function saveGameHistory(winner) {
             const history = JSON.parse(localStorage.getItem('gomoku_history') || '[]');
-            history.unshift({ date: new Date().toLocaleString(), player1: GameState.players[1].name, player2: GameState.players[2].name, winner: winner === 0 ? '平局' : GameState.players[winner].name, moves: GameState.moveHistory.length, mode: GameState.gameMode });
+            history.unshift({
+                date: new Date().toLocaleString(),
+                player1: GameState.players[1].name,
+                player2: GameState.players[2].name,
+                winner: winner === 0 ? '平局' : GameState.players[winner].name,
+                moves: GameState.moveHistory.length,
+                mode: GameState.gameMode
+            });
             if (history.length > 50) history.pop();
             localStorage.setItem('gomoku_history', JSON.stringify(history));
         }
         
-        function loadGameHistory() { GameState.gameHistory = JSON.parse(localStorage.getItem('gomoku_history') || '[]'); }
+        function loadGameHistory() {
+            GameState.gameHistory = JSON.parse(localStorage.getItem('gomoku_history') || '[]');
+        }
         
         function renderHistory() {
             const list = document.getElementById('historyList');
             const history = JSON.parse(localStorage.getItem('gomoku_history') || '[]');
-            if (history.length === 0) { list.innerHTML = '<p style="text-align: center; color: #888;">暂无对局记录</p>'; return; }
-            list.innerHTML = history.map(g => `<div class="room-item"><div><div>${g.player1} vs ${g.player2}</div><div style="font-size: 11px; color: #888;">${g.date}</div></div><div style="color: #2ecc71; font-weight: 600; font-size: 12px;">${g.winner} ${g.winner !== '平局' ? '胜' : ''}</div></div>`).join('');
+            if (history.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #888;">暂无对局记录</p>';
+                return;
+            }
+            list.innerHTML = history.map(g => `
+                <div class="room-item">
+                    <div>
+                        <div>${g.player1} vs ${g.player2}</div>
+                        <div style="font-size: 11px; color: #888;">${g.date}</div>
+                    </div>
+                    <div style="color: #2ecc71; font-weight: 600; font-size: 12px;">${g.winner} ${g.winner !== '平局' ? '胜' : ''}</div>
+                </div>
+            `).join('');
         }
     </script>
 </body>
