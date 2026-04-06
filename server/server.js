@@ -10,6 +10,7 @@
  * - 比赛模式（三局两胜/五局三胜）
  * - 快捷消息/表情
  * - 心跳检测
+ * - 掉线检测与通知
  */
 
 const WebSocket = require('ws');
@@ -18,8 +19,9 @@ const crypto = require('crypto');
 
 // 配置
 const PORT = process.env.PORT || 8080;
-const ROOM_TIMEOUT = 30 * 60 * 1000;
-const HEARTBEAT_INTERVAL = 30000;
+const ROOM_TIMEOUT = 30 * 60 * 1000;      // 空闲房间超时时间（30分钟）
+const RECONNECT_TIMEOUT = 60 * 1000;      // 掉线重连等待时间（60秒）
+const HEARTBEAT_INTERVAL = 30000;         // 心跳检测间隔（30秒）
 
 // 创建 HTTP 服务器
 const server = http.createServer((req, res) => {
@@ -52,16 +54,24 @@ function generateUserId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
+// 清理过期房间（只清理空闲房间或已结束的房间）
 function cleanupExpiredRooms() {
   const now = Date.now();
   for (const [code, room] of rooms) {
-    if (now - room.createdAt > ROOM_TIMEOUT) {
+    // 只清理 waiting 状态超过 30 分钟的房间，或 finished 状态超过 5 分钟的房间
+    const isWaiting = room.status === 'waiting';
+    const isFinished = room.status === 'finished';
+    const expired = now - room.createdAt > ROOM_TIMEOUT;
+    const finishedExpired = isFinished && (now - room.finishedAt > 5 * 60 * 1000);
+    
+    if ((isWaiting && expired) || finishedExpired) {
       room.players.forEach(player => {
         if (player && player.ws && player.ws.readyState === WebSocket.OPEN) {
           send(player.ws, { type: 'room_expired', message: '房间已过期' });
         }
       });
       rooms.delete(code);
+      console.log(`房间 ${code} 已清理 (${room.status})`);
     }
   }
 }
@@ -80,6 +90,70 @@ function broadcastToRoom(roomCode, data, excludeWs = null) {
       send(player.ws, data);
     }
   });
+}
+
+// 处理玩家掉线
+function handlePlayerDisconnect(ws) {
+  const client = clients.get(ws);
+  if (!client) return;
+  
+  const { roomCode, color } = client;
+  const room = rooms.get(roomCode);
+  
+  if (!room) {
+    clients.delete(ws);
+    return;
+  }
+  
+  const player = room.players[color - 1];
+  if (player) {
+    player.ws = null;  // 清除 ws 引用
+    player.disconnectedAt = Date.now();
+  }
+  
+  clients.delete(ws);
+  
+  // 如果游戏正在进行，通知对手
+  if (room.status === 'playing') {
+    const opponentColor = color === 1 ? 2 : 1;
+    const opponent = room.players[opponentColor - 1];
+    
+    if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
+      send(opponent.ws, { 
+        type: 'opponent_disconnected', 
+        message: '对手已掉线，等待重连...',
+        reconnectTimeout: RECONNECT_TIMEOUT
+      });
+    }
+    
+    // 设置重连超时
+    room.reconnectTimer = setTimeout(() => {
+      // 超时未重连，判定掉线方输
+      if (room.players[color - 1] && !room.players[color - 1].ws) {
+        room.status = 'finished';
+        room.finishedAt = Date.now();
+        const winner = opponentColor;
+        room.matchWins[winner]++;
+        
+        if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
+          send(opponent.ws, {
+            type: 'game_over',
+            winner,
+            reason: 'disconnect',
+            matchWins: room.matchWins
+          });
+        }
+        
+        console.log(`玩家 ${player?.name || color} 掉线超时，房间 ${roomCode} 结束`);
+      }
+    }, RECONNECT_TIMEOUT);
+  }
+  
+  // 如果是等待中的房间，房主掉线则删除房间
+  if (room.status === 'waiting' && color === 1) {
+    rooms.delete(roomCode);
+    console.log(`房主掉线，房间 ${roomCode} 已删除`);
+  }
 }
 
 // 创建房间
@@ -102,6 +176,7 @@ function handleCreateRoom(ws, data) {
     matchMode: matchMode || 1,
     undoLimit: undoLimit || 3,
     createdAt: Date.now(),
+    lastActivityAt: Date.now(),  // 最后活动时间
     players: [{
       id: userId,
       name: playerName || '玩家',
@@ -109,13 +184,15 @@ function handleCreateRoom(ws, data) {
       ws: ws,
       time: gameTime || 300,
       moves: 0,
-      undoLeft: undoLimit || 3
+      undoLeft: undoLimit || 3,
+      disconnectedAt: null
     }, null],
     board: [],
     moves: [],
     currentPlayer: 1,
     matchWins: { 1: 0, 2: 0 },
-    currentRound: 1
+    currentRound: 1,
+    reconnectTimer: null
   };
   
   initBoard(room);
@@ -130,6 +207,8 @@ function handleCreateRoom(ws, data) {
     matchMode: room.matchMode,
     undoLimit: room.undoLimit
   });
+  
+  console.log(`房间 ${roomCode} 已创建，创建者: ${playerName}`);
 }
 
 function initBoard(room) {
@@ -177,9 +256,11 @@ function handleJoinRoom(ws, data) {
     ws: ws,
     time: room.gameTime,
     moves: 0,
-    undoLeft: room.undoLimit
+    undoLeft: room.undoLimit,
+    disconnectedAt: null
   };
   room.status = 'playing';
+  room.lastActivityAt = Date.now();
   
   clients.set(ws, { userId, roomCode, color: 2 });
   
@@ -198,6 +279,8 @@ function handleJoinRoom(ws, data) {
   if (room.players[0] && room.players[0].ws) {
     send(room.players[0].ws, { type: 'opponent_joined', opponent: room.players[1] });
   }
+  
+  console.log(`玩家 ${playerName} 加入房间 ${roomCode}`);
 }
 
 // 重连房间
@@ -218,8 +301,15 @@ function handleRejoinRoom(ws, data) {
   
   if (playerIndex === -1) { send(ws, { type: 'error', message: '未找到玩家' }); return; }
   
+  // 清除重连定时器
+  if (room.reconnectTimer) {
+    clearTimeout(room.reconnectTimer);
+    room.reconnectTimer = null;
+  }
+  
   // 更新连接
   room.players[playerIndex].ws = ws;
+  room.players[playerIndex].disconnectedAt = null;
   clients.set(ws, { userId: room.players[playerIndex].id, roomCode, color: playerIndex + 1 });
   
   send(ws, {
@@ -229,6 +319,15 @@ function handleRejoinRoom(ws, data) {
     moves: room.moves,
     players: room.players.map(p => p ? { name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft } : null)
   });
+  
+  // 通知对手
+  const opponentColor = playerIndex === 0 ? 2 : 1;
+  const opponent = room.players[opponentColor - 1];
+  if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
+    send(opponent.ws, { type: 'opponent_reconnected', message: '对手已重连' });
+  }
+  
+  console.log(`玩家 ${playerName} 重连房间 ${roomCode}`);
 }
 
 // 落子
@@ -250,12 +349,14 @@ function handlePlacePiece(ws, data) {
   room.board[row][col] = color;
   room.moves.push({ row, col, player: color, time: Date.now() });
   room.players[color - 1].moves++;
+  room.lastActivityAt = Date.now();
   
   const winner = checkWin(room.board, row, col, color, room.boardSize);
   
   if (winner) {
     room.matchWins[color]++;
     room.status = 'finished';
+    room.finishedAt = Date.now();
     
     broadcastToRoom(roomCode, {
       type: 'game_over',
@@ -327,6 +428,7 @@ function handleUndoAccept(ws) {
   room.board[lastMove.row][lastMove.col] = 0;
   room.players[lastMove.player - 1].moves--;
   room.currentPlayer = lastMove.player;
+  room.lastActivityAt = Date.now();
   
   // 通知双方
   broadcastToRoom(roomCode, { type: 'undo_accepted' });
@@ -357,6 +459,7 @@ function handleSurrender(ws) {
   if (!room || room.status !== 'playing') return;
   
   room.status = 'finished';
+  room.finishedAt = Date.now();
   const winner = color === 1 ? 2 : 1;
   room.matchWins[winner]++;
   
@@ -374,9 +477,17 @@ function handlePlayAgain(ws) {
   const client = clients.get(ws);
   if (!client) return;
   
-  const { roomCode } = client;
+  const { roomCode, color } = client;
   const room = rooms.get(roomCode);
   if (!room) return;
+  
+  // 检查对手是否在线
+  const opponentColor = color === 1 ? 2 : 1;
+  const opponent = room.players[opponentColor - 1];
+  if (!opponent || !opponent.ws) {
+    send(ws, { type: 'error', message: '对手已离线' });
+    return;
+  }
   
   // 重置棋盘
   initBoard(room);
@@ -384,6 +495,8 @@ function handlePlayAgain(ws) {
   room.currentPlayer = 1;
   room.status = 'playing';
   room.currentRound++;
+  room.lastActivityAt = Date.now();
+  room.finishedAt = null;
   
   // 重置玩家
   room.players.forEach(p => {
@@ -393,7 +506,18 @@ function handlePlayAgain(ws) {
     }
   });
   
-  broadcastToRoom(roomCode, { type: 'play_again' });
+  // 交换颜色（通过交换玩家数组位置）
+  const temp = room.players[0];
+  room.players[0] = room.players[1];
+  room.players[1] = temp;
+  room.players[0].color = 1;
+  room.players[1].color = 2;
+  
+  // 更新 clients 映射
+  clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode, color: 1 });
+  clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode, color: 2 });
+  
+  broadcastToRoom(roomCode, { type: 'play_again', newColor: color === 1 ? 2 : 1 });
 }
 
 // 离开房间
@@ -401,12 +525,13 @@ function handleLeaveRoom(ws) {
   const client = clients.get(ws);
   if (!client) return;
   
-  const { roomCode } = client;
+  const { roomCode, color } = client;
   const room = rooms.get(roomCode);
   
   if (room) {
-    broadcastToRoom(roomCode, { type: 'opponent_left', message: '对手已离开房间' });
+    broadcastToRoom(roomCode, { type: 'opponent_left', message: '对手已离开房间' }, ws);
     rooms.delete(roomCode);
+    console.log(`房间 ${roomCode} 已删除（玩家主动离开）`);
   }
   
   clients.delete(ws);
@@ -476,10 +601,7 @@ wss.on('connection', (ws) => {
   });
   
   ws.on('close', () => {
-    const client = clients.get(ws);
-    if (client) {
-      clients.delete(ws);
-    }
+    handlePlayerDisconnect(ws);
   });
   
   ws.on('pong', () => { ws.isAlive = true; });
@@ -488,7 +610,11 @@ wss.on('connection', (ws) => {
 // 心跳检测
 setInterval(() => {
   wss.clients.forEach((ws) => {
-    if (!ws.isAlive) return ws.terminate();
+    if (!ws.isAlive) {
+      // 心跳超时，触发掉线处理
+      handlePlayerDisconnect(ws);
+      return ws.terminate();
+    }
     ws.isAlive = false;
     ws.ping();
   });
