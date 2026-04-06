@@ -62,6 +62,7 @@
             text-align: center;
             min-width: 140px;
             transition: all 0.3s;
+            align-self: center;  /* 在 flex 容器中居中 */
         }
         
         .player-info.opponent { margin-bottom: 8px; }
@@ -94,6 +95,7 @@
             color: #e74c3c;
             font-weight: bold;
             padding: 3px 0;
+            width: 100%;  /* 占满宽度 */
         }
         
         .game-status {
@@ -103,6 +105,7 @@
             border-radius: 6px;
             margin: 8px 0;
             font-size: 14px;
+            width: fit-content;  /* 根据内容自适应 */
         }
         
         /* 比分显示 */
