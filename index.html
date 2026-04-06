@@ -185,7 +185,6 @@
         
         .piece {
             position: absolute;
-            width: 24px; height: 24px;
             border-radius: 50%;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -1147,13 +1146,7 @@
             renderBoard();
             
             for (const move of GameState.moveHistory) {
-                const cell = document.querySelector(`.cell[data-row="${move.row}"][data-col="${move.col}"]`);
-                if (cell) {
-                    const piece = document.createElement('div');
-                    piece.className = `piece ${move.player === 1 ? 'black' : 'white'}`;
-                    cell.appendChild(piece);
-                    cell.classList.add('has-piece');
-                }
+                updateCellPiece(move.row, move.col, move.player);
             }
             
             if (GameState.moveHistory.length > 0) {
@@ -1259,15 +1252,29 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 28; // 交点间距
-            const padding = 14; // 边距（让边缘线条有空间）
+            const cellSize = 28; // 交点间距（基准值）
+            const padding = 14; // 边距
             
-            // 计算棋盘尺寸：size 个交点，(size-1) 个间距
-            const boardSize = cellSize * (size - 1) + padding * 2;
+            // 计算棋盘基准尺寸
+            const baseBoardSize = cellSize * (size - 1) + padding * 2;
+            
+            // 响应式缩放：根据屏幕宽度计算缩放比例
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            // 保留 30px 边距
+            const maxWidth = vw - 30;
+            const maxHeight = vh - 280; // 减去顶部玩家信息和底部按钮的高度
+            const scale = Math.min(maxWidth / baseBoardSize, maxHeight / baseBoardSize, 1);
+            
+            // 实际棋盘尺寸
+            const boardSize = baseBoardSize * scale;
+            const actualCellSize = cellSize * scale;
+            const actualPadding = padding * scale;
             
             board.innerHTML = '';
             board.style.width = boardSize + 'px';
             board.style.height = boardSize + 'px';
+            board.style.transform = 'none'; // 清除之前的 transform
             
             // 用 SVG 绘制棋盘背景和网格线
             const svgNS = 'http://www.w3.org/2000/svg';
@@ -1284,35 +1291,34 @@
             rect.setAttribute('rx', '6');
             svg.appendChild(rect);
             
-            // 绘制网格线（精确落在交点上）
+            // 绘制网格线
             for (let i = 0; i < size; i++) {
-                const pos = padding + i * cellSize; // 交点位置
+                const pos = actualPadding + i * actualCellSize;
                 
                 // 垂直线
                 const vLine = document.createElementNS(svgNS, 'line');
                 vLine.setAttribute('x1', pos);
-                vLine.setAttribute('y1', padding);
+                vLine.setAttribute('y1', actualPadding);
                 vLine.setAttribute('x2', pos);
-                vLine.setAttribute('y2', padding + (size - 1) * cellSize);
+                vLine.setAttribute('y2', actualPadding + (size - 1) * actualCellSize);
                 vLine.setAttribute('stroke', '#8b6914');
-                vLine.setAttribute('stroke-width', '1');
+                vLine.setAttribute('stroke-width', scale);
                 svg.appendChild(vLine);
                 
                 // 水平线
                 const hLine = document.createElementNS(svgNS, 'line');
-                hLine.setAttribute('x1', padding);
+                hLine.setAttribute('x1', actualPadding);
                 hLine.setAttribute('y1', pos);
-                hLine.setAttribute('x2', padding + (size - 1) * cellSize);
+                hLine.setAttribute('x2', actualPadding + (size - 1) * actualCellSize);
                 hLine.setAttribute('y2', pos);
                 hLine.setAttribute('stroke', '#8b6914');
-                hLine.setAttribute('stroke-width', '1');
+                hLine.setAttribute('stroke-width', scale);
                 svg.appendChild(hLine);
             }
             
             // 绘制星位
             const starPoints = size === 15 ? [
-                [7, 7], // 天元
-                [3, 3], [3, 7], [3, 11], [7, 3], [7, 11], [11, 3], [11, 7], [11, 11]
+                [7, 7], [3, 3], [3, 7], [3, 11], [7, 3], [7, 11], [11, 3], [11, 7], [11, 11]
             ] : size === 19 ? [
                 [9, 9], [3, 3], [3, 9], [3, 15], [9, 3], [9, 15], [15, 3], [15, 9], [15, 15]
             ] : size === 13 ? [
@@ -1321,39 +1327,63 @@
             
             for (const [r, c] of starPoints) {
                 const circle = document.createElementNS(svgNS, 'circle');
-                circle.setAttribute('cx', padding + c * cellSize);
-                circle.setAttribute('cy', padding + r * cellSize);
-                circle.setAttribute('r', '3');
+                circle.setAttribute('cx', actualPadding + c * actualCellSize);
+                circle.setAttribute('cy', actualPadding + r * actualCellSize);
+                circle.setAttribute('r', 3 * scale);
                 circle.setAttribute('fill', '#8b6914');
                 svg.appendChild(circle);
             }
             
             board.appendChild(svg);
             
-            // 创建点击区域（每个交点一个）
+            // 创建点击区域
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.width = boardSize + 'px';
             grid.style.height = boardSize + 'px';
             
+            const cellClickSize = actualCellSize * 1.0; // 点击区域大小
+            const pieceSize = actualCellSize * 0.85; // 棋子大小
+            
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.style.width = '28px';
-                    cell.style.height = '28px';
-                    // 点击区域中心对齐交点
-                    cell.style.left = (padding + j * cellSize - 14) + 'px';
-                    cell.style.top = (padding + i * cellSize - 14) + 'px';
+                    cell.style.width = cellClickSize + 'px';
+                    cell.style.height = cellClickSize + 'px';
+                    cell.style.left = (actualPadding + j * actualCellSize - cellClickSize / 2) + 'px';
+                    cell.style.top = (actualPadding + i * actualCellSize - cellClickSize / 2) + 'px';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
+                    // 保存棋子大小，用于后续渲染
+                    cell.dataset.pieceSize = pieceSize;
                     cell.addEventListener('click', () => handleCellClick(i, j));
                     grid.appendChild(cell);
                 }
             }
             
             board.appendChild(grid);
+            
+            // 保存当前缩放比例，供其他函数使用
+            GameState.boardScale = scale;
+            GameState.pieceSize = pieceSize;
         }
+        
+        // 窗口大小改变时重新渲染棋盘
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (GameState.isPlaying) {
+                    const moveHistory = [...GameState.moveHistory];
+                    renderBoard();
+                    // 重新绘制棋子
+                    for (const move of moveHistory) {
+                        updateCellPiece(move.row, move.col, move.player);
+                    }
+                }
+            }, 100);
+        });
         
         function handleCellClick(row, col) {
             if (!GameState.isPlaying) return;
@@ -1425,8 +1455,30 @@
         function updateCell(row, col) {
             const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
             document.querySelectorAll('.piece.last-move').forEach(p => p.classList.remove('last-move'));
+            
+            // 清除预览
+            cell.classList.remove('preview');
+            
             const piece = document.createElement('div');
             piece.className = `piece ${GameState.board[row][col] === 1 ? 'black' : 'white'} last-move`;
+            // 使用动态棋子大小
+            const pieceSize = GameState.pieceSize || 24;
+            piece.style.width = pieceSize + 'px';
+            piece.style.height = pieceSize + 'px';
+            cell.appendChild(piece);
+            cell.classList.add('has-piece');
+        }
+        
+        // 辅助函数：重新绘制指定位置的棋子
+        function updateCellPiece(row, col, player) {
+            const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            if (!cell) return;
+            
+            const piece = document.createElement('div');
+            piece.className = `piece ${player === 1 ? 'black' : 'white'}`;
+            const pieceSize = GameState.pieceSize || 24;
+            piece.style.width = pieceSize + 'px';
+            piece.style.height = pieceSize + 'px';
             cell.appendChild(piece);
             cell.classList.add('has-piece');
         }
