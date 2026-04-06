@@ -134,7 +134,7 @@
             position: relative;
             border-radius: 6px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            margin: 0 auto;
+            /* 宽高由 JS 动态设置 */
         }
         
         .board-svg {
@@ -143,9 +143,8 @@
         }
         
         .board-grid { 
-            position: absolute;
-            top: 0;
-            left: 0;
+            position: relative;
+            /* 宽高由 JS 动态设置 */
         }
         
         .cell { 
@@ -1250,7 +1249,8 @@
         
         // 渲染棋盘 - Canvas 方案（经典稳定）
         function renderBoard() {
-            const board = document.getElementById('board');
+            const boardGrid = document.getElementById('board');
+            const board = boardGrid.parentElement; // 外层 .board 容器
             const size = GameState.boardSize;
             const cellSize = 28; // 交点间距（基准值）
             const padding = 14; // 边距
@@ -1271,10 +1271,14 @@
             const actualCellSize = cellSize * scale;
             const actualPadding = padding * scale;
             
-            board.innerHTML = '';
+            boardGrid.innerHTML = '';
+            
+            // 同时设置外层容器和内层的宽高
             board.style.width = boardSize + 'px';
             board.style.height = boardSize + 'px';
-            board.style.transform = 'none'; // 清除之前的 transform
+            boardGrid.style.width = boardSize + 'px';
+            boardGrid.style.height = boardSize + 'px';
+            boardGrid.style.position = 'relative'; // 改为 relative，不需要 absolute
             
             // 用 SVG 绘制棋盘背景和网格线
             const svgNS = 'http://www.w3.org/2000/svg';
@@ -1334,14 +1338,9 @@
                 svg.appendChild(circle);
             }
             
-            board.appendChild(svg);
+            boardGrid.appendChild(svg);
             
-            // 创建点击区域
-            const grid = document.createElement('div');
-            grid.className = 'board-grid';
-            grid.style.width = boardSize + 'px';
-            grid.style.height = boardSize + 'px';
-            
+            // 创建点击区域（直接添加到 boardGrid，不需要再创建嵌套容器）
             const cellClickSize = actualCellSize * 1.0; // 点击区域大小
             const pieceSize = actualCellSize * 0.85; // 棋子大小
             
@@ -1358,11 +1357,9 @@
                     // 保存棋子大小，用于后续渲染
                     cell.dataset.pieceSize = pieceSize;
                     cell.addEventListener('click', () => handleCellClick(i, j));
-                    grid.appendChild(cell);
+                    boardGrid.appendChild(cell);
                 }
             }
-            
-            board.appendChild(grid);
             
             // 保存当前缩放比例，供其他函数使用
             GameState.boardScale = scale;
