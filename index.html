@@ -121,7 +121,7 @@
             font-weight: bold;
         }
         
-        /* 棋盘 - Canvas 方案 */
+        /* 棋盘 - SVG 方案 */
         .board-container { 
             display: flex; 
             justify-content: center; 
@@ -134,29 +134,29 @@
             position: relative;
             border-radius: 6px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            margin: 0 auto;  /* 双重保险：margin 居中 */
+            margin: 0 auto;
         }
         
-        .board-canvas {
+        .board-svg {
             display: block;
             border-radius: 6px;
-            margin: 0 auto;  /* 确保 Canvas 居中 */
         }
         
         .board-grid { 
-            display: grid; 
-            gap: 0; 
             position: absolute;
-            top: 14px;  /* 半个格子 */
-            left: 14px;
+            top: 0;
+            left: 0;
         }
         
         .cell { 
-            width: 28px; 
-            height: 28px; 
-            position: relative; 
+            position: absolute;
             cursor: pointer; 
             background: transparent;
+            border-radius: 50%;
+        }
+        
+        .cell:hover {
+            background: rgba(0,0,0,0.1);
         }
         
         /* 预览标记 */
@@ -191,6 +191,7 @@
             transform: translate(-50%, -50%);
             z-index: 10;
             transition: all 0.15s ease;
+            pointer-events: none;
         }
         
         .piece.black { background: radial-gradient(circle at 30% 30%, #555, #000); box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
@@ -1258,67 +1259,92 @@
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
-            const cellSize = 28;
-            const padding = 14; // 半个格子
-            const gridSize = size * cellSize; // 格子网格大小
-            const totalSize = gridSize + padding * 2; // 总大小（含边距）
+            const cellSize = 28; // 交点间距
+            const padding = 14; // 边距（让边缘线条有空间）
+            
+            // 计算棋盘尺寸：size 个交点，(size-1) 个间距
+            const boardSize = cellSize * (size - 1) + padding * 2;
             
             board.innerHTML = '';
-            board.style.width = totalSize + 'px';
-            board.style.height = totalSize + 'px';
+            board.style.width = boardSize + 'px';
+            board.style.height = boardSize + 'px';
             
-            // 创建 Canvas 绘制棋盘背景和网格线
-            const canvas = document.createElement('canvas');
-            canvas.className = 'board-canvas';
-            canvas.width = totalSize;
-            canvas.height = totalSize;
-            canvas.style.width = totalSize + 'px';
-            canvas.style.height = totalSize + 'px';
+            // 用 SVG 绘制棋盘背景和网格线
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('class', 'board-svg');
+            svg.setAttribute('width', boardSize);
+            svg.setAttribute('height', boardSize);
             
-            const ctx = canvas.getContext('2d');
+            // 背景
+            const rect = document.createElementNS(svgNS, 'rect');
+            rect.setAttribute('width', boardSize);
+            rect.setAttribute('height', boardSize);
+            rect.setAttribute('fill', '#d4a574');
+            rect.setAttribute('rx', '6');
+            svg.appendChild(rect);
             
-            // 绘制棋盘背景
-            ctx.fillStyle = '#d4a574';
-            ctx.fillRect(0, 0, totalSize, totalSize);
-            
-            // 绘制网格线
-            // 交叉点坐标：第一个在 padding + cellSize/2，最后一个在 padding + (size-1)*cellSize + cellSize/2
-            ctx.strokeStyle = '#8b6914';
-            ctx.lineWidth = 1;
-            
-            // 计算线条起点和终点（整数坐标避免模糊）
-            const lineStart = padding + cellSize / 2; // 第一个交叉点 = 28
-            const lineEnd = padding + (size - 1) * cellSize + cellSize / 2; // 最后一个交叉点
-            
+            // 绘制网格线（精确落在交点上）
             for (let i = 0; i < size; i++) {
-                const pos = lineStart + i * cellSize; // 每条线的位置
+                const pos = padding + i * cellSize; // 交点位置
                 
-                // 垂直线：从上到下
-                ctx.beginPath();
-                ctx.moveTo(pos, lineStart);
-                ctx.lineTo(pos, lineEnd);
-                ctx.stroke();
+                // 垂直线
+                const vLine = document.createElementNS(svgNS, 'line');
+                vLine.setAttribute('x1', pos);
+                vLine.setAttribute('y1', padding);
+                vLine.setAttribute('x2', pos);
+                vLine.setAttribute('y2', padding + (size - 1) * cellSize);
+                vLine.setAttribute('stroke', '#8b6914');
+                vLine.setAttribute('stroke-width', '1');
+                svg.appendChild(vLine);
                 
-                // 水平线：从左到右
-                ctx.beginPath();
-                ctx.moveTo(lineStart, pos);
-                ctx.lineTo(lineEnd, pos);
-                ctx.stroke();
+                // 水平线
+                const hLine = document.createElementNS(svgNS, 'line');
+                hLine.setAttribute('x1', padding);
+                hLine.setAttribute('y1', pos);
+                hLine.setAttribute('x2', padding + (size - 1) * cellSize);
+                hLine.setAttribute('y2', pos);
+                hLine.setAttribute('stroke', '#8b6914');
+                hLine.setAttribute('stroke-width', '1');
+                svg.appendChild(hLine);
             }
             
-            board.appendChild(canvas);
+            // 绘制星位
+            const starPoints = size === 15 ? [
+                [7, 7], // 天元
+                [3, 3], [3, 7], [3, 11], [7, 3], [7, 11], [11, 3], [11, 7], [11, 11]
+            ] : size === 19 ? [
+                [9, 9], [3, 3], [3, 9], [3, 15], [9, 3], [9, 15], [15, 3], [15, 9], [15, 15]
+            ] : size === 13 ? [
+                [6, 6], [3, 3], [3, 6], [3, 9], [6, 3], [6, 9], [9, 3], [9, 6], [9, 9]
+            ] : [];
             
-            // 创建格子网格（覆盖在 Canvas 上）
+            for (const [r, c] of starPoints) {
+                const circle = document.createElementNS(svgNS, 'circle');
+                circle.setAttribute('cx', padding + c * cellSize);
+                circle.setAttribute('cy', padding + r * cellSize);
+                circle.setAttribute('r', '3');
+                circle.setAttribute('fill', '#8b6914');
+                svg.appendChild(circle);
+            }
+            
+            board.appendChild(svg);
+            
+            // 创建点击区域（每个交点一个）
             const grid = document.createElement('div');
             grid.className = 'board-grid';
-            grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
+            grid.style.width = boardSize + 'px';
+            grid.style.height = boardSize + 'px';
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.style.width = cellSize + 'px';
-                    cell.style.height = cellSize + 'px';
+                    cell.style.width = '28px';
+                    cell.style.height = '28px';
+                    // 点击区域中心对齐交点
+                    cell.style.left = (padding + j * cellSize - 14) + 'px';
+                    cell.style.top = (padding + i * cellSize - 14) + 'px';
                     cell.dataset.row = i;
                     cell.dataset.col = j;
                     cell.addEventListener('click', () => handleCellClick(i, j));
