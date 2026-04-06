@@ -1250,7 +1250,8 @@
             const size = GameState.boardSize;
             const cellSize = 28;
             const padding = 14; // 半个格子
-            const totalSize = size * cellSize + padding * 2;
+            const gridSize = size * cellSize; // 格子网格大小
+            const totalSize = gridSize + padding * 2; // 总大小（含边距）
             
             board.innerHTML = '';
             board.style.width = totalSize + 'px';
@@ -1270,23 +1271,28 @@
             ctx.fillStyle = '#d4a574';
             ctx.fillRect(0, 0, totalSize, totalSize);
             
-            // 绘制网格线（从半格位置开始）
+            // 绘制网格线
+            // 交叉点坐标：第一个在 padding + cellSize/2，最后一个在 padding + (size-1)*cellSize + cellSize/2
             ctx.strokeStyle = '#8b6914';
             ctx.lineWidth = 1;
             
+            // 计算线条起点和终点（整数坐标避免模糊）
+            const lineStart = padding + cellSize / 2; // 第一个交叉点 = 28
+            const lineEnd = padding + (size - 1) * cellSize + cellSize / 2; // 最后一个交叉点
+            
             for (let i = 0; i < size; i++) {
-                const pos = padding + i * cellSize + cellSize / 2; // 交叉点位置
+                const pos = lineStart + i * cellSize; // 每条线的位置
                 
-                // 垂直线
+                // 垂直线：从上到下
                 ctx.beginPath();
-                ctx.moveTo(pos, padding + cellSize / 2);
-                ctx.lineTo(pos, totalSize - padding - cellSize / 2);
+                ctx.moveTo(pos, lineStart);
+                ctx.lineTo(pos, lineEnd);
                 ctx.stroke();
                 
-                // 水平线
+                // 水平线：从左到右
                 ctx.beginPath();
-                ctx.moveTo(padding + cellSize / 2, pos);
-                ctx.lineTo(totalSize - padding - cellSize / 2, pos);
+                ctx.moveTo(lineStart, pos);
+                ctx.lineTo(lineEnd, pos);
                 ctx.stroke();
             }
             
