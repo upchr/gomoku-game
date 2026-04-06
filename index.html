@@ -120,7 +120,7 @@
         }
         
         /* 棋盘 - Canvas 方案 */
-        .board-container { display: flex; justify-content: center; margin: 8px 0; }
+        .board-container { display: flex; justify-content: center; align-items: center; width: 100%; margin: 8px 0; }
         
         .board {
             position: relative;  /* 关键：为 absolute 定位提供基准 */
@@ -131,6 +131,7 @@
         .board-canvas {
             display: block;
             border-radius: 6px;
+            margin: 0 auto;  /* 确保 Canvas 居中 */
         }
         
         .board-grid { 
