@@ -119,35 +119,26 @@
             font-weight: bold;
         }
         
-        /* 棋盘 - SVG 网格线方案 */
+        /* 棋盘 - Canvas 方案 */
         .board-container { display: flex; justify-content: center; margin: 8px 0; }
         
         .board {
-            background: #d4a574;
-            padding: 14px; /* 半个格子 = 28/2 */
+            position: relative;
             border-radius: 6px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            position: relative;
+        }
+        
+        .board-canvas {
+            display: block;
+            border-radius: 6px;
         }
         
         .board-grid { 
             display: grid; 
             gap: 0; 
-            position: relative;
-        }
-        
-        .board-lines-svg {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
-        .board-lines-svg line {
-            stroke: #8b6914;
-            stroke-width: 1;
+            top: 14px;  /* 半个格子 */
+            left: 14px;
         }
         
         .cell { 
@@ -430,7 +421,6 @@
         @media (max-width: 600px) {
             .cell { width: 22px !important; height: 22px !important; }
             .piece { width: 18px; height: 18px; }
-            .board { padding: 11px; }
             header h1 { font-size: 1.4em; }
             .player-info { padding: 8px 12px; min-width: 100px; }
             .player-info .name { font-size: 12px; }
@@ -1254,54 +1244,58 @@
             document.getElementById('scoreP2').textContent = GameState.matchWins[2];
         }
         
-        // 渲染棋盘 - SVG 网格线方案
+        // 渲染棋盘 - Canvas 方案（经典稳定）
         function renderBoard() {
             const board = document.getElementById('board');
             const size = GameState.boardSize;
             const cellSize = 28;
-            const totalSize = size * cellSize;
+            const padding = 14; // 半个格子
+            const totalSize = size * cellSize + padding * 2;
             
             board.innerHTML = '';
+            board.style.width = totalSize + 'px';
+            board.style.height = totalSize + 'px';
             
-            // 创建 SVG 网格线
-            const svgNS = 'http://www.w3.org/2000/svg';
-            const svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('class', 'board-lines-svg');
-            svg.setAttribute('viewBox', `0 0 ${totalSize} ${totalSize}`);
-            svg.style.width = totalSize + 'px';
-            svg.style.height = totalSize + 'px';
+            // 创建 Canvas 绘制棋盘背景和网格线
+            const canvas = document.createElement('canvas');
+            canvas.className = 'board-canvas';
+            canvas.width = totalSize;
+            canvas.height = totalSize;
+            canvas.style.width = totalSize + 'px';
+            canvas.style.height = totalSize + 'px';
             
-            // 绘制线条（从半格位置开始）
-            const half = cellSize / 2;
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制棋盘背景
+            ctx.fillStyle = '#d4a574';
+            ctx.fillRect(0, 0, totalSize, totalSize);
+            
+            // 绘制网格线（从半格位置开始）
+            ctx.strokeStyle = '#8b6914';
+            ctx.lineWidth = 1;
+            
             for (let i = 0; i < size; i++) {
-                const pos = half + i * cellSize;
+                const pos = padding + i * cellSize + cellSize / 2; // 交叉点位置
                 
                 // 垂直线
-                const vLine = document.createElementNS(svgNS, 'line');
-                vLine.setAttribute('x1', pos);
-                vLine.setAttribute('y1', half);
-                vLine.setAttribute('x2', pos);
-                vLine.setAttribute('y2', totalSize - half);
-                svg.appendChild(vLine);
+                ctx.beginPath();
+                ctx.moveTo(pos, padding + cellSize / 2);
+                ctx.lineTo(pos, totalSize - padding - cellSize / 2);
+                ctx.stroke();
                 
                 // 水平线
-                const hLine = document.createElementNS(svgNS, 'line');
-                hLine.setAttribute('x1', half);
-                hLine.setAttribute('y1', pos);
-                hLine.setAttribute('x2', totalSize - half);
-                hLine.setAttribute('y2', pos);
-                svg.appendChild(hLine);
+                ctx.beginPath();
+                ctx.moveTo(padding + cellSize / 2, pos);
+                ctx.lineTo(totalSize - padding - cellSize / 2, pos);
+                ctx.stroke();
             }
             
-            board.appendChild(svg);
+            board.appendChild(canvas);
             
-            // 创建格子网格
+            // 创建格子网格（覆盖在 Canvas 上）
             const grid = document.createElement('div');
             grid.className = 'board-grid';
             grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
-            grid.style.position = 'absolute';
-            grid.style.top = '0';
-            grid.style.left = '0';
             
             for (let i = 0; i < size; i++) {
                 for (let j = 0; j < size; j++) {
