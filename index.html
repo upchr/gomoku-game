@@ -1199,11 +1199,26 @@
         }
         
         function makeAIMove() {
-            if (!GameState.isPlaying || GameState.currentPlayer !== GameState.aiColor) return;
+            if (!GameState.isPlaying) {
+                console.log('AI: 游戏未开始');
+                return;
+            }
+            if (GameState.currentPlayer !== GameState.aiColor) {
+                console.log('AI: 不是AI回合', { currentPlayer: GameState.currentPlayer, aiColor: GameState.aiColor });
+                return;
+            }
             
-            const bestMove = aiEngine.getBestMove(GameState.board, GameState.aiColor, 100);
+            console.log('AI: 开始思考...', { difficulty: GameState.aiDifficulty, aiColor: GameState.aiColor });
+            
+            // 使用难度配置的时间限制
+            const timeLimit = aiEngine.depthMap[GameState.aiDifficulty]?.timeLimit || 1000;
+            const bestMove = aiEngine.getBestMove(GameState.board, GameState.aiColor, timeLimit);
+            
             if (bestMove) {
+                console.log('AI: 找到最佳走法', bestMove);
                 doPlacePiece(bestMove.row, bestMove.col, GameState.aiColor);
+            } else {
+                console.log('AI: 未找到走法');
             }
         }
         
@@ -1879,16 +1894,20 @@
             document.getElementById('winModal').style.display = 'none';
             GameState.currentRound++;
             
-            // 交换先后手：我执的颜色互换
-            // 第一局我执黑(先手)，第二局我执白(后手)
-            const newMyColor = GameState.myColor === 1 ? 2 : 1;
-            
             if (GameState.gameMode === 'online') {
                 // 在线模式：通知服务端交换颜色
+                const newMyColor = GameState.myColor === 1 ? 2 : 1;
                 GameState.myColor = newMyColor;
                 sendToServer({ type: 'play_again', newColor: newMyColor });
+            } else if (GameState.gameMode === 'ai') {
+                // AI 模式：交换玩家执子颜色
+                const newPlayerColor = GameState.myColor === 1 ? 2 : 1;
+                GameState.myColor = newPlayerColor;
+                GameState.aiColor = newPlayerColor === 1 ? 2 : 1;
+                restartGame();
             } else {
                 // 本地模式：直接交换颜色
+                const newMyColor = GameState.myColor === 1 ? 2 : 1;
                 GameState.myColor = newMyColor;
                 restartGame();
             }
@@ -1903,10 +1922,9 @@
         function restartGame() {
             document.getElementById('winModal').style.display = 'none';
             
-            // 获取玩家名字（在 myColor 交换后获取）
-            // myColor 已经在 playAgain 中交换过了
+            // 获取玩家名字
             const myName = GameState.myName;
-            const oppName = GameState.opponentName || (GameState.myColor === 1 ? GameState.players[2].name : GameState.players[1].name);
+            const oppName = GameState.opponentName || 'AI';
             
             // 根据当前 myColor 决定谁执黑谁执白
             // player1 = 黑方, player2 = 白方
@@ -1916,6 +1934,11 @@
                 time: GameState.gameTime,
                 size: GameState.boardSize
             });
+            
+            // AI 模式：如果 AI 执黑先手，让 AI 先下
+            if (GameState.gameMode === 'ai' && GameState.aiColor === 1) {
+                setTimeout(makeAIMove, 300);
+            }
         }
         
         // ==================== 悔棋功能 - 修复版 ====================
