@@ -25,22 +25,45 @@
         header p { color: #aaa; font-size: 13px; }
         
         .menu-screen {
-            background: rgba(255,255,255,0.1);
-            border-radius: 20px;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .menu-content {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
             padding: 40px;
-            max-width: 500px;
-            margin: 50px auto;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
             backdrop-filter: blur(10px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        .menu-title {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+        }
+        
+        .menu-subtitle {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
         }
         
         .menu-btn {
             display: block;
             width: 100%;
-            padding: 18px;
-            margin-bottom: 15px;
-            font-size: 18px;
+            padding: 15px;
+            margin-bottom: 12px;
+            font-size: 16px;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
@@ -49,10 +72,61 @@
         .menu-btn.primary { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; }
         .menu-btn.secondary { background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; }
         .menu-btn.tertiary { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
+        .menu-btn.warning { background: linear-gradient(135deg, #f39c12, #d68910); color: #fff; }
         .menu-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         
         .game-screen { display: none; flex-direction: column; align-items: center; }
         .game-screen.active + .history-panel { display: none !important; }
+        
+        /* 游戏规则 */
+        .rules-panel {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .rules-content {
+            background: #2c3e50;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .rules-content h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #3498db;
+        }
+        
+        .rules-content h3 {
+            margin: 15px 0 10px;
+            color: #2ecc71;
+            font-size: 16px;
+        }
+        
+        .rules-content p, .rules-content li {
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .rules-content ul {
+            padding-left: 20px;
+        }
+        
+        .rules-content .close-btn {
+            margin-top: 20px;
+            width: 100%;
+        }
         
         /* 玩家信息 - 上下布局 */
         .player-info {
@@ -444,9 +518,63 @@
         </header>
         
         <div class="menu-screen" id="menuScreen">
-            <button class="menu-btn primary" onclick="showLocalSetup()">🎮 本地对战</button>
-            <button class="menu-btn secondary" onclick="showOnlinePanel()">🌐 在线对战</button>
-            <button class="menu-btn tertiary" onclick="showHistory()">📋 对局记录</button>
+            <div class="menu-content">
+                <div class="menu-title">⚫ 五子棋 ⚪</div>
+                <div class="menu-subtitle">经典策略对战游戏</div>
+                <button class="menu-btn primary" onclick="showLocalSetup()">🎮 本地对战</button>
+                <button class="menu-btn secondary" onclick="showOnlinePanel()">🌐 在线对战</button>
+                <button class="menu-btn tertiary" onclick="showHistory()">📋 对局记录</button>
+                <button class="menu-btn warning" onclick="showRules()">📖 游戏规则</button>
+            </div>
+        </div>
+        
+        <!-- 游戏规则面板 -->
+        <div class="rules-panel" id="rulesPanel">
+            <div class="rules-content">
+                <h2>📖 五子棋规则</h2>
+                
+                <h3>🎯 游戏目标</h3>
+                <p>先将五颗棋子连成一线（横、竖、斜均可）者获胜。</p>
+                
+                <h3>⚫ 基本规则</h3>
+                <ul>
+                    <li>黑方先行，双方轮流落子</li>
+                    <li>棋子落在网格线的交点上</li>
+                    <li>棋子落定后不可移动</li>
+                    <li>先连成五子者获胜</li>
+                </ul>
+                
+                <h3>⏱️ 计时规则</h3>
+                <ul>
+                    <li>每方有独立计时，超时判负</li>
+                    <li>可选择 3/5/10 分钟或不限时</li>
+                    <li>轮到谁落子，谁的计时器走动</li>
+                </ul>
+                
+                <h3>🔄 悔棋规则</h3>
+                <ul>
+                    <li>本地对战：直接悔棋</li>
+                    <li>在线对战：需对方同意</li>
+                    <li>悔棋次数有限，用完则无法悔棋</li>
+                </ul>
+                
+                <h3>🏆 比赛模式</h3>
+                <ul>
+                    <li>单局决胜：一局定胜负</li>
+                    <li>三局两胜：先赢两局者获胜</li>
+                    <li>五局三胜：先赢三局者获胜</li>
+                </ul>
+                
+                <h3>💡 游戏技巧</h3>
+                <ul>
+                    <li>注意防守：阻止对方连成五子</li>
+                    <li>双三必胜：同时形成两个活三</li>
+                    <li>冲四活三：形成冲四的同时有活三</li>
+                    <li>抢占天元：开局占据中心位置</li>
+                </ul>
+                
+                <button class="menu-btn primary close-btn" onclick="closeRules()">知道了</button>
+            </div>
         </div>
         
         <div class="game-screen" id="gameScreen">
@@ -870,6 +998,14 @@
             renderHistory();
         }
         
+        function showRules() {
+            document.getElementById('rulesPanel').style.display = 'flex';
+        }
+        
+        function closeRules() {
+            document.getElementById('rulesPanel').style.display = 'none';
+        }
+        
         function exitRoom() {
             if (GameState.gameMode === 'online') {
                 sendToServer({ type: 'leave_room' });
@@ -886,11 +1022,12 @@
             if (ws) { ws.close(); ws = null; }
             document.getElementById('gameScreen').style.display = 'none';
             document.getElementById('gameScreen').classList.remove('active');
-            document.getElementById('menuScreen').style.display = 'block';
+            document.getElementById('menuScreen').style.display = 'flex';
             document.getElementById('winModal').style.display = 'none';
             document.getElementById('scoreDisplay').style.display = 'none';
             document.getElementById('chatBar').style.display = 'none';
             document.getElementById('reconnectOverlay').style.display = 'none';
+            document.getElementById('historyPanel').style.display = 'none';
         }
         
         function closeWinModal() {
