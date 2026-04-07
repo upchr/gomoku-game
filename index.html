@@ -176,6 +176,22 @@
         .piece.black { background: radial-gradient(circle at 30% 30%, #555, #000); box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
         .piece.white { background: radial-gradient(circle at 30% 30%, #fff, #ccc); box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
         .piece.last-move::after { content: ''; position: absolute; width: 6px; height: 6px; background: #e74c3c; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        
+        .piece .move-number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            z-index: 11;
+        }
+        
+        .piece.black .move-number { color: #fff; }
+        .piece.white .move-number { color: #000; }
+        .piece.last-move .move-number { display: none; } /* 最后一手显示红点，不显示序号 */
+        
         .piece.winning { animation: winning-pulse 0.5s ease infinite alternate; }
         
         @keyframes winning-pulse {
@@ -1533,6 +1549,9 @@
             stopTimer();
             clearPreview();
             
+            // 游戏结束后显示棋子序号
+            toggleMoveNumbers(true);
+            
             const winnerName = document.getElementById('winnerName');
             if (winner === 0) {
                 winnerName.textContent = '平局!';
@@ -1800,29 +1819,125 @@
                 return;
             }
             
-            let sgf = `(;GM[4]FF[4]CA[UTF-8]`;
-            sgf += `SZ[${GameState.boardSize}]`;
-            sgf += `PB[${GameState.players[1].name}]`;
-            sgf += `PW[${GameState.players[2].name}]`;
-            sgf += `DT[${new Date().toLocaleDateString()}]`;
+            const size = GameState.boardSize;
+            const cellSize = 28;
+            const padding = 20;
+            const canvasSize = cellSize * (size - 1) + padding * 2;
             
-            for (const move of GameState.moveHistory) {
-                const col = String.fromCharCode(97 + move.col);
-                const row = String.fromCharCode(97 + move.row);
-                sgf += `;${move.player === 1 ? 'B' : 'W'}[${col}${row}]`;
+            // 创建 Canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制棋盘背景
+            ctx.fillStyle = '#d4a574';
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+            
+            // 绘制网格线
+            ctx.strokeStyle = '#8b6914';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < size; i++) {
+                const pos = padding + i * cellSize;
+                // 垂直线
+                ctx.beginPath();
+                ctx.moveTo(pos, padding);
+                ctx.lineTo(pos, padding + (size - 1) * cellSize);
+                ctx.stroke();
+                // 水平线
+                ctx.beginPath();
+                ctx.moveTo(padding, pos);
+                ctx.lineTo(padding + (size - 1) * cellSize, pos);
+                ctx.stroke();
             }
             
-            sgf += `)`;
+            // 绘制星位
+            const starPoints = size === 15 ? [
+                [7, 7], [3, 3], [3, 7], [3, 11], [7, 3], [7, 11], [11, 3], [11, 7], [11, 11]
+            ] : size === 19 ? [
+                [9, 9], [3, 3], [3, 9], [3, 15], [9, 3], [9, 15], [15, 3], [15, 9], [15, 15]
+            ] : size === 13 ? [
+                [6, 6], [3, 3], [3, 6], [3, 9], [6, 3], [6, 9], [9, 3], [9, 6], [9, 9]
+            ] : [];
             
-            const blob = new Blob([sgf], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `gomoku_${new Date().toISOString().slice(0, 10)}.sgf`;
-            a.click();
-            URL.revokeObjectURL(url);
+            ctx.fillStyle = '#8b6914';
+            for (const [r, c] of starPoints) {
+                ctx.beginPath();
+                ctx.arc(padding + c * cellSize, padding + r * cellSize, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
             
-            showToast('棋谱已导出');
+            // 绘制棋子和序号
+            const pieceSize = cellSize * 0.85;
+            for (let i = 0; i < GameState.moveHistory.length; i++) {
+                const move = GameState.moveHistory[i];
+                const x = padding + move.col * cellSize;
+                const y = padding + move.row * cellSize;
+                
+                // 绘制棋子
+                ctx.beginPath();
+                ctx.arc(x, y, pieceSize / 2, 0, Math.PI * 2);
+                
+                if (move.player === 1) {
+                    // 黑子
+                    const gradient = ctx.createRadialGradient(x - 3, y - 3, 0, x, y, pieceSize / 2);
+                    gradient.addColorStop(0, '#555');
+                    gradient.addColorStop(1, '#000');
+                    ctx.fillStyle = gradient;
+                } else {
+                    // 白子
+                    const gradient = ctx.createRadialGradient(x - 3, y - 3, 0, x, y, pieceSize / 2);
+                    gradient.addColorStop(0, '#fff');
+                    gradient.addColorStop(1, '#ccc');
+                    ctx.fillStyle = gradient;
+                }
+                ctx.fill();
+                
+                // 绘制序号
+                ctx.font = `bold ${Math.floor(cellSize * 0.45)}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = move.player === 1 ? '#fff' : '#000';
+                ctx.fillText(i + 1, x, y);
+            }
+            
+            // 下载图片
+            const link = document.createElement('a');
+            link.download = `gomoku_${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            showToast('棋谱已导出为图片');
+        }
+        
+        // 显示/隐藏棋子序号
+        function toggleMoveNumbers(show) {
+            const cells = document.querySelectorAll('.cell.has-piece');
+            cells.forEach(cell => {
+                const piece = cell.querySelector('.piece');
+                if (piece) {
+                    if (show) {
+                        // 添加序号
+                        const move = GameState.moveHistory.find(m => 
+                            m.row === parseInt(cell.dataset.row) && m.col === parseInt(cell.dataset.col)
+                        );
+                        if (move) {
+                            const index = GameState.moveHistory.indexOf(move) + 1;
+                            piece.setAttribute('data-number', index);
+                            if (!piece.querySelector('.move-number')) {
+                                const num = document.createElement('span');
+                                num.className = 'move-number';
+                                num.textContent = index;
+                                piece.appendChild(num);
+                            }
+                        }
+                    } else {
+                        // 移除序号
+                        const num = piece.querySelector('.move-number');
+                        if (num) num.remove();
+                    }
+                }
+            });
         }
         
         // ==================== 对局记录 ====================
