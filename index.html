@@ -944,6 +944,7 @@
             GameState.matchMode = 1;
             GameState.myColor = 1; // 本地模式默认玩家1执黑
             GameState.myName = player1;
+            GameState.opponentName = player2; // 对手名字
             
             initGame('local', { player1, player2, time, size });
             closePanel('localSetupPanel');
@@ -1085,6 +1086,7 @@
             GameState.roomCode = data.roomCode;
             GameState.myColor = data.color; // 加入者执白
             GameState.myName = document.getElementById('onlineNickname').value || '玩家';
+            GameState.opponentName = data.opponent.name; // 对手名字
             GameState.matchMode = data.matchMode || 1;
             GameState.undoLimit = data.undoLimit || 3;
             GameState.matchWins = { 1: 0, 2: 0 };
@@ -1106,6 +1108,7 @@
             closePanel('waitingPanel');
             GameState.matchWins = { 1: 0, 2: 0 };
             GameState.currentRound = 1;
+            GameState.opponentName = data.opponent.name; // 对手名字
             
             // 我执黑，对手执白
             const blackName = GameState.myName;
@@ -1639,12 +1642,9 @@
             document.getElementById('winModal').style.display = 'none';
             
             // 获取玩家名字（在 myColor 交换后获取）
-            // myColor 已经在 playAgain 中交换过了，所以：
-            // - GameState.players[oldMyColor].name 是我的名字（但索引已经不对了）
-            // 我们需要用 GameState.myName 和推导对手名字
+            // myColor 已经在 playAgain 中交换过了
             const myName = GameState.myName;
-            const oppColor = GameState.myColor === 1 ? 2 : 1;
-            const oppName = GameState.players[oppColor].name;
+            const oppName = GameState.opponentName || (GameState.myColor === 1 ? GameState.players[2].name : GameState.players[1].name);
             
             // 根据当前 myColor 决定谁执黑谁执白
             // player1 = 黑方, player2 = 白方
