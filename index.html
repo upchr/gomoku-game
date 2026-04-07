@@ -540,6 +540,7 @@
                 <div class="menu-title">⚫ 五子棋 ⚪</div>
                 <div class="menu-subtitle">经典策略对战游戏</div>
                 <button class="menu-btn primary" onclick="showLocalSetup()">🎮 本地对战</button>
+                <button class="menu-btn primary" onclick="showAISetup()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">🤖 人机对战</button>
                 <button class="menu-btn secondary" onclick="showOnlinePanel()">🌐 在线对战</button>
                 <button class="menu-btn tertiary" onclick="showHistory()">📋 对局记录</button>
                 <button class="menu-btn warning" onclick="showRules()">📖 游戏规则</button>
@@ -721,6 +722,53 @@
         </div>
     </div>
     
+    <!-- 人机对战设置 -->
+    <div class="modal-panel" id="aiSetupPanel">
+        <div class="modal-content">
+            <h2>🤖 人机对战设置</h2>
+            <div class="form-group">
+                <label>你的昵称</label>
+                <input type="text" id="aiPlayerName" placeholder="输入昵称" maxlength="10" value="玩家">
+            </div>
+            <div class="form-group">
+                <label>执子颜色</label>
+                <select id="aiPlayerColor">
+                    <option value="1">⚫ 黑子（先手）</option>
+                    <option value="2">⚪ 白子（后手）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>AI 难度</label>
+                <select id="aiDifficulty">
+                    <option value="easy">简单（快速）</option>
+                    <option value="medium" selected>中等（均衡）</option>
+                    <option value="hard">困难（强力）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>棋盘大小</label>
+                <select id="aiBoardSize">
+                    <option value="13">13×13</option>
+                    <option value="15" selected>15×15</option>
+                    <option value="19">19×19</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>对局时长</label>
+                <select id="aiGameTime">
+                    <option value="0">不限时</option>
+                    <option value="180">3分钟</option>
+                    <option value="300" selected>5分钟</option>
+                    <option value="600">10分钟</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="flex:1" onclick="startAIGame()">开始游戏</button>
+                <button class="btn btn-danger" onclick="closePanel('aiSetupPanel')">取消</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- 在线对战面板 -->
     <div class="modal-panel" id="onlinePanel">
         <div class="modal-content">
@@ -855,6 +903,7 @@
         </div>
     </div>
 
+    <script src="ai.js"></script>
     <script>
         // ==================== 配置 ====================
         const WS_SERVER = 'wss://gomoku-server-production-722d.up.railway.app';
@@ -1011,6 +1060,7 @@
         function showPanel(panelId) { document.getElementById(panelId).style.display = 'flex'; }
         function closePanel(panelId) { document.getElementById(panelId).style.display = 'none'; }
         function showLocalSetup() { showPanel('localSetupPanel'); }
+        function showAISetup() { showPanel('aiSetupPanel'); }
         function showOnlinePanel() { showPanel('onlinePanel'); }
         function showCreateRoom() { closePanel('onlinePanel'); showPanel('createRoomPanel'); }
         
@@ -1112,6 +1162,49 @@
             
             initGame('local', { player1, player2, time, size });
             closePanel('localSetupPanel');
+        }
+        
+        // ==================== 人机对战 ====================
+        let aiEngine = null;
+        
+        function startAIGame() {
+            const playerName = document.getElementById('aiPlayerName').value || '玩家';
+            const playerColor = parseInt(document.getElementById('aiPlayerColor').value);
+            const difficulty = document.getElementById('aiDifficulty').value;
+            const size = parseInt(document.getElementById('aiBoardSize').value);
+            const time = parseInt(document.getElementById('aiGameTime').value);
+            
+            // 初始化 AI 引擎
+            aiEngine = new GomokuAI(difficulty);
+            
+            GameState.undoLimit = 999; // AI 模式允许无限悔棋
+            GameState.matchMode = 1;
+            GameState.myColor = playerColor;
+            GameState.myName = playerName;
+            GameState.opponentName = 'AI';
+            GameState.aiColor = playerColor === 1 ? 2 : 1;
+            GameState.aiDifficulty = difficulty;
+            
+            // player1 = 黑方, player2 = 白方
+            const blackName = playerColor === 1 ? playerName : 'AI';
+            const whiteName = playerColor === 2 ? playerName : 'AI';
+            
+            initGame('ai', { player1: blackName, player2: whiteName, time, size });
+            closePanel('aiSetupPanel');
+            
+            // 如果 AI 执黑（先手），让 AI 先下
+            if (GameState.aiColor === 1) {
+                setTimeout(makeAIMove, 300);
+            }
+        }
+        
+        function makeAIMove() {
+            if (!GameState.isPlaying || GameState.currentPlayer !== GameState.aiColor) return;
+            
+            const bestMove = aiEngine.getBestMove(GameState.board, GameState.aiColor, 100);
+            if (bestMove) {
+                doPlacePiece(bestMove.row, bestMove.col, GameState.aiColor);
+            }
         }
         
         // ==================== 在线对战 ====================
@@ -1600,6 +1693,11 @@
             
             GameState.currentPlayer = GameState.currentPlayer === 1 ? 2 : 1;
             updateUI();
+            
+            // AI 模式下，轮到 AI 时自动下棋
+            if (GameState.gameMode === 'ai' && GameState.currentPlayer === GameState.aiColor) {
+                setTimeout(makeAIMove, 300);
+            }
         }
         
         function handlePiecePlaced(data) {
@@ -1858,26 +1956,37 @@
         function doUndo() {
             if (GameState.moveHistory.length === 0) return;
             
-            const lastMove = GameState.moveHistory.pop();
-            GameState.board[lastMove.row][lastMove.col] = 0;
-            GameState.players[lastMove.player].moves--;
-            
-            // 消耗悔棋次数：谁悔棋扣谁的次数
-            if (GameState.gameMode === 'online') {
-                // 在线模式：悔自己刚下的棋，扣自己的次数
-                GameState.players[GameState.myColor].undoLeft--;
-            } else {
-                // 本地模式：悔掉刚下的那步棋，扣下棋方的次数
-                GameState.players[lastMove.player].undoLeft--;
+            // AI 模式：悔两步（玩家 + AI）
+            if (GameState.gameMode === 'ai' && GameState.moveHistory.length >= 2) {
+                // 撤销 AI 的棋
+                const aiMove = GameState.moveHistory.pop();
+                GameState.board[aiMove.row][aiMove.col] = 0;
+                GameState.players[aiMove.player].moves--;
+                let cell = document.querySelector(`.cell[data-row="${aiMove.row}"][data-col="${aiMove.col}"]`);
+                if (cell) {
+                    cell.innerHTML = '';
+                    cell.classList.remove('has-piece');
+                }
             }
             
-            // 悔棋后，轮到刚才下棋的人
-            GameState.currentPlayer = lastMove.player;
+            // 撤销最后一步（玩家或 AI）
+            const lastMove = GameState.moveHistory.pop();
+            if (lastMove) {
+                GameState.board[lastMove.row][lastMove.col] = 0;
+                GameState.players[lastMove.player].moves--;
+                
+                const cell = document.querySelector(`.cell[data-row="${lastMove.row}"][data-col="${lastMove.col}"]`);
+                if (cell) {
+                    cell.innerHTML = '';
+                    cell.classList.remove('has-piece');
+                }
+                
+                GameState.currentPlayer = lastMove.player;
+            }
             
-            const cell = document.querySelector(`.cell[data-row="${lastMove.row}"][data-col="${lastMove.col}"]`);
-            if (cell) {
-                cell.innerHTML = '';
-                cell.classList.remove('has-piece');
+            // 本地模式：消耗悔棋次数
+            if (GameState.gameMode === 'local') {
+                GameState.players[lastMove.player].undoLeft--;
             }
             
             // 标记新的最后一手
