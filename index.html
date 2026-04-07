@@ -2155,6 +2155,23 @@
             document.getElementById('winModal').style.display = 'none';
             GameState.currentRound++;
             
+            // 先完全结束当前游戏（清理所有定时器、AI Worker）
+            stopTimer();
+            if (GameState.endGameTimeout) {
+                clearTimeout(GameState.endGameTimeout);
+                GameState.endGameTimeout = null;
+            }
+            if (GameState.aiMoveTimeout) {
+                clearTimeout(GameState.aiMoveTimeout);
+                GameState.aiMoveTimeout = null;
+            }
+            if (GameState.aiWorker) {
+                GameState.aiWorker.terminate();
+                GameState.aiWorker = null;
+            }
+            currentAiRequestId = null;
+            GameState.isPlaying = false;
+            
             if (GameState.gameMode === 'online') {
                 // 在线模式：通知服务端交换颜色
                 const newMyColor = GameState.myColor === 1 ? 2 : 1;
