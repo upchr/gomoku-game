@@ -1403,8 +1403,10 @@
             const winResult = checkWin(row, col, player);
             if (winResult) {
                 GameState.winningLine = winResult;
+                GameState.matchWins[player]++; // 更新比分
                 highlightWinningLine();
-                endGame(player);
+                // 延迟 2 秒显示结果，让玩家看清连成的五子
+                setTimeout(() => endGame(player), 2000);
                 return;
             }
             
@@ -1494,10 +1496,36 @@
         }
         
         function handleGameOver(data) {
-            if (data.winner > 0) {
+            // 如果是超时/掉线/认输导致的结束，直接显示结果
+            if (data.reason === 'timeout' || data.reason === 'disconnect' || data.reason === 'surrender') {
+                endGame(data.winner);
+                return;
+            }
+            
+            // 连珠获胜的情况，需要更新棋盘、高亮五子、延迟显示
+            if (data.winningMove) {
+                // 更新棋盘上的最后一颗棋子
+                GameState.board[data.winningMove.row][data.winningMove.col] = data.winner;
+                GameState.moveHistory.push({ row: data.winningMove.row, col: data.winningMove.col, player: data.winner });
+                updateCell(data.winningMove.row, data.winningMove.col);
+                
+                // 检测并高亮获胜的五子
+                const winResult = checkWin(data.winningMove.row, data.winningMove.col, data.winner);
+                if (winResult) {
+                    GameState.winningLine = winResult;
+                    highlightWinningLine();
+                }
+            }
+            
+            // 更新比分（使用服务器返回的比分）
+            if (data.matchWins) {
+                GameState.matchWins = data.matchWins;
+            } else if (data.winner > 0) {
                 GameState.matchWins[data.winner]++;
             }
-            endGame(data.winner);
+            
+            // 延迟显示结果，让玩家看清连成的五子
+            setTimeout(() => endGame(data.winner), 2000);
         }
         
         function endGame(winner) {
