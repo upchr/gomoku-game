@@ -8,7 +8,7 @@ importScripts('ai.js');
 
 // 接收主线程消息
 self.onmessage = function(e) {
-  const { board, player, difficulty, boardSize, timeLimit } = e.data;
+  const { requestId, board, player, difficulty, boardSize, timeLimit } = e.data;
   
   try {
     // 创建 AI 实例
@@ -19,15 +19,17 @@ self.onmessage = function(e) {
     const result = ai.getBestMove(board, player, timeLimit);
     const thinkTime = Date.now() - startTime;
     
-    // 返回结果
+    // 返回结果（包含请求 ID）
     self.postMessage({
+      requestId: requestId,
       success: true,
       move: result,
       thinkTime: thinkTime
     });
   } catch (err) {
-    // 返回错误
+    // 返回错误（包含请求 ID）
     self.postMessage({
+      requestId: requestId,
       success: false,
       error: err.message
     });

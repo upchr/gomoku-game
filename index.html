@@ -925,6 +925,7 @@
             gameTime: 300,
             gameMode: 'local',
             isPlaying: false,
+            isEnding: false,  // 游戏正在结束（延迟显示结果期间）
             timer: null,
             startTime: null,
             moveHistory: [],
@@ -941,8 +942,19 @@
             // 悔棋限制
             undoLimit: 3,
             // 胜利连线
-            winningLine: []
+            winningLine: [],
+            // AI 相关
+            aiWorker: null,
+            aiColor: null,
+            aiDifficulty: 'medium',
+            // 定时器管理
+            endGameTimeout: null,
+            aiMoveTimeout: null
         };
+        
+        // AI 请求计数器（全局）
+        let aiRequestCounter = 0;
+        let currentAiRequestId = null;
         
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', () => {
@@ -1019,7 +1031,10 @@
                             playerName: GameState.myName
                         });
                     }
+                    // 注意：重连结果通过 handleServerMessage 处理
+                    // 成功会收到 'rejoined' 消息，失败会收到 'error' 消息
                 } catch (err) {
+                    console.error('重连失败', err);
                     if (reconnectAttempts < MAX_RECONNECT) {
                         showReconnect();
                     } else {
@@ -1031,9 +1046,12 @@
         }
         
         function sendToServer(data) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(data));
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.error('WebSocket 未连接，无法发送消息', data);
+                return false;
             }
+            ws.send(JSON.stringify(data));
+            return true;
         }
         
         function handleServerMessage(data) {
@@ -1052,7 +1070,18 @@
                 case 'quick_msg': showToast(`${data.playerName}: ${data.message}`); break;
                 case 'emoji': showEmojiAnimation(data.emoji, data.playerColor); break;
                 case 'rejoined': handleRejoined(data); break;
-                case 'error': alert('错误: ' + data.message); break;
+                case 'opponent_disconnected': handleOpponentDisconnected(data); break;
+                case 'opponent_reconnected': handleOpponentReconnected(data); break;
+                case 'room_expired': handleRoomExpired(data); break;
+                case 'error': 
+                    // 特殊处理"房间不存在"错误
+                    if (data.message.includes('房间不存在') && GameState.gameMode === 'online') {
+                        alert('房间已不存在，请重新加入或创建房间');
+                        backToMenu();
+                    } else {
+                        alert('错误: ' + data.message);
+                    }
+                    break;
             }
         }
         
@@ -1083,6 +1112,21 @@
             document.getElementById('rulesPanel').style.display = 'none';
         }
         
+        // 验证用户昵称
+        function validateNickname(name) {
+            if (!name) return null;
+            name = name.trim();
+            // 限制长度
+            if (name.length > 20) {
+                name = name.substring(0, 20);
+            }
+            // 过滤特殊字符
+            name = name.replace(/[<>\"'&]/g, '');
+            // 如果为空，返回默认值
+            if (!name) return '玩家';
+            return name;
+        }
+        
         function exitRoom() {
             if (GameState.gameMode === 'online') {
                 sendToServer({ type: 'leave_room' });
@@ -1096,7 +1140,29 @@
             GameState.matchWins = { 1: 0, 2: 0 };
             GameState.currentRound = 1;
             clearPreview();
+            
+            // 清理所有定时器
+            if (GameState.endGameTimeout) {
+                clearTimeout(GameState.endGameTimeout);
+                GameState.endGameTimeout = null;
+            }
+            if (GameState.aiMoveTimeout) {
+                clearTimeout(GameState.aiMoveTimeout);
+                GameState.aiMoveTimeout = null;
+            }
+            
+            // 清理 WebSocket
             if (ws) { ws.close(); ws = null; }
+            
+            // 清理 AI Worker
+            if (GameState.aiWorker) {
+                GameState.aiWorker.terminate();
+                GameState.aiWorker = null;
+            }
+            
+            // 重置 AI 请求状态
+            currentAiRequestId = null;
+            
             document.getElementById('gameScreen').style.display = 'none';
             document.getElementById('gameScreen').classList.remove('active');
             document.getElementById('menuScreen').style.display = 'flex';
@@ -1148,8 +1214,8 @@
         
         // ==================== 本地对战 ====================
         function startLocalGame() {
-            const player1 = document.getElementById('localPlayer1').value || '玩家1';
-            const player2 = document.getElementById('localPlayer2').value || '玩家2';
+            const player1 = validateNickname(document.getElementById('localPlayer1').value) || '玩家1';
+            const player2 = validateNickname(document.getElementById('localPlayer2').value) || '玩家2';
             const time = parseInt(document.getElementById('gameTime').value);
             const size = parseInt(document.getElementById('boardSize').value);
             const undoLimit = parseInt(document.getElementById('undoLimit').value);
@@ -1168,7 +1234,7 @@
         let aiEngine = null;
         
         function startAIGame() {
-            const playerName = document.getElementById('aiPlayerName').value || '玩家';
+            const playerName = validateNickname(document.getElementById('aiPlayerName').value) || '玩家';
             const playerColor = parseInt(document.getElementById('aiPlayerColor').value);
             const difficulty = document.getElementById('aiDifficulty').value;
             const size = parseInt(document.getElementById('aiBoardSize').value);
@@ -1203,79 +1269,128 @@
                 console.log('AI: 游戏未开始');
                 return;
             }
+            if (GameState.isEnding) {
+                console.log('AI: 游戏正在结束，跳过');
+                return;
+            }
             if (GameState.currentPlayer !== GameState.aiColor) {
                 console.log('AI: 不是AI回合', { currentPlayer: GameState.currentPlayer, aiColor: GameState.aiColor });
                 return;
             }
             
-            console.log('AI: 开始思考...', { difficulty: GameState.aiDifficulty, aiColor: GameState.aiColor, boardSize: GameState.boardSize });
+            // 统计棋子数量
+            let playerCount = 0, aiCount = 0;
+            for (let i = 0; i < GameState.boardSize; i++) {
+                for (let j = 0; j < GameState.boardSize; j++) {
+                    if (GameState.board[i][j] === 1) playerCount++;
+                    else if (GameState.board[i][j] === 2) aiCount++;
+                }
+            }
+            
+            console.log('AI: 开始思考...', { 
+                difficulty: GameState.aiDifficulty, 
+                aiColor: GameState.aiColor, 
+                boardSize: GameState.boardSize,
+                playerPieces: playerCount,
+                aiPieces: aiCount
+            });
             
             // 记录开始时间（用于扣除 AI 思考时间）
             const thinkStartTime = Date.now();
             
+            // 生成唯一的请求 ID
+            const requestId = ++aiRequestCounter;
+            currentAiRequestId = requestId;
+            
             // 使用 Web Worker 进行 AI 计算（避免阻塞 UI）
             if (window.Worker) {
-                // 创建 Worker
+                // 创建 Worker（只创建一次）
                 if (!GameState.aiWorker) {
                     GameState.aiWorker = new Worker('ai-worker.js');
+                    
+                    // 设置单一的 onmessage 回调（只设置一次）
+                    GameState.aiWorker.onmessage = function(e) {
+                        const result = e.data;
+                        const dataRequestId = result.requestId;
+                        
+                        // 只处理当前请求的响应
+                        if (dataRequestId !== currentAiRequestId) {
+                            console.log('AI: 忽略过期响应', { expected: currentAiRequestId, received: dataRequestId });
+                            return;
+                        }
+                        
+                        // 再次检查游戏状态（防止游戏已结束）
+                        if (!GameState.isPlaying || GameState.currentPlayer !== GameState.aiColor) {
+                            console.log('AI: 游戏状态已改变，忽略响应');
+                            return;
+                        }
+                        
+                        if (result.success && result.move) {
+                            // 计算 AI 思考耗时（秒）
+                            const thinkTime = Math.ceil(result.thinkTime / 1000);
+                            
+                            // 扣除 AI 的思考时间
+                            if (thinkTime > 0 && GameState.players[GameState.aiColor]) {
+                                GameState.players[GameState.aiColor].time = Math.max(0, GameState.players[GameState.aiColor].time - thinkTime);
+                                updateUI();
+                                
+                                // 检查 AI 是否超时
+                                if (GameState.players[GameState.aiColor].time <= 0) {
+                                    console.log('AI: 超时判负');
+                                    const winner = GameState.aiColor === 1 ? 2 : 1;
+                                    endGame(winner);
+                                    return;
+                                }
+                            }
+                            
+                            console.log('AI: 找到最佳走法', result.move, `思考耗时: ${result.thinkTime}ms`);
+                            doPlacePiece(result.move.row, result.move.col, GameState.aiColor);
+                        } else {
+                            console.log('AI: 计算失败', result.error);
+                        }
+                    };
+                    
+                    GameState.aiWorker.onerror = function(err) {
+                        console.error('AI Worker 错误:', err);
+                        // 降级到主线程计算
+                        computeAIMoveMain(thinkStartTime, requestId);
+                    };
                 }
                 
                 // 获取配置的时间限制
                 const timeLimit = aiEngine.depthMap[GameState.aiDifficulty]?.timeLimit || 1000;
                 
-                // 发送计算请求
+                // 发送计算请求（包含请求 ID）
                 GameState.aiWorker.postMessage({
+                    requestId: requestId,
                     board: GameState.board,
                     player: GameState.aiColor,
                     difficulty: GameState.aiDifficulty,
                     boardSize: GameState.boardSize,
                     timeLimit: timeLimit
                 });
-                
-                // 接收计算结果
-                GameState.aiWorker.onmessage = function(e) {
-                    const result = e.data;
-                    
-                    if (result.success && result.move) {
-                        // 计算 AI 思考耗时（秒）
-                        const thinkTime = Math.ceil(result.thinkTime / 1000);
-                        
-                        // 扣除 AI 的思考时间
-                        if (thinkTime > 0 && GameState.players[GameState.aiColor]) {
-                            GameState.players[GameState.aiColor].time = Math.max(0, GameState.players[GameState.aiColor].time - thinkTime);
-                            updateUI();
-                            
-                            // 检查 AI 是否超时
-                            if (GameState.players[GameState.aiColor].time <= 0) {
-                                console.log('AI: 超时判负');
-                                const winner = GameState.aiColor === 1 ? 2 : 1;
-                                endGame(winner);
-                                return;
-                            }
-                        }
-                        
-                        console.log('AI: 找到最佳走法', result.move, `思考耗时: ${result.thinkTime}ms`);
-                        doPlacePiece(result.move.row, result.move.col, GameState.aiColor);
-                    } else {
-                        console.log('AI: 计算失败', result.error);
-                    }
-                };
-                
-                GameState.aiWorker.onerror = function(err) {
-                    console.error('AI Worker 错误:', err);
-                    // 降级到主线程计算
-                    computeAIMoveMain(thinkStartTime);
-                };
             } else {
                 // 不支持 Worker，降级到主线程计算
-                computeAIMoveMain(thinkStartTime);
+                computeAIMoveMain(thinkStartTime, requestId);
             }
         }
         
         // 主线程 AI 计算（降级方案）
-        function computeAIMoveMain(thinkStartTime) {
+        function computeAIMoveMain(thinkStartTime, requestId) {
+            // 检查是否是当前请求
+            if (requestId !== currentAiRequestId) {
+                console.log('AI: 主线程计算请求已过期，忽略');
+                return;
+            }
+            
             const timeLimit = aiEngine.depthMap[GameState.aiDifficulty]?.timeLimit || 1000;
             const bestMove = aiEngine.getBestMove(GameState.board, GameState.aiColor, timeLimit);
+            
+            // 再次检查游戏状态
+            if (!GameState.isPlaying || GameState.currentPlayer !== GameState.aiColor) {
+                console.log('AI: 游戏状态已改变，忽略主线程计算结果');
+                return;
+            }
             
             // 计算 AI 思考耗时（秒）
             const thinkTime = Math.ceil((Date.now() - thinkStartTime) / 1000);
@@ -1352,7 +1467,7 @@
                 sendToServer({
                     type: 'join_room',
                     roomCode: code,
-                    playerName: document.getElementById('onlineNickname').value || '玩家',
+                    playerName: validateNickname(document.getElementById('onlineNickname').value) || '玩家',
                     password: ''
                 });
             } catch (err) {
@@ -1372,7 +1487,7 @@
                 sendToServer({
                     type: 'join_room',
                     roomCode: code,
-                    playerName: document.getElementById('onlineNickname').value || '玩家',
+                    playerName: validateNickname(document.getElementById('onlineNickname').value) || '玩家',
                     password: password
                 });
             } catch (err) {
@@ -1390,6 +1505,7 @@
             
             try {
                 await connectWebSocket();
+                const nickname = validateNickname(document.getElementById('onlineNickname').value) || '玩家';
                 GameState.myName = nickname;
                 GameState.gameTime = time;
                 GameState.boardSize = size;
@@ -1483,8 +1599,27 @@
             GameState.moveHistory = data.moves;
             GameState.players = data.players;
             
+            // 隐藏重连提示
+            document.getElementById('reconnectOverlay').style.display = 'none';
+            reconnectAttempts = 0;
+            
             renderBoardFromState();
             updateUI();
+        }
+        
+        function handleOpponentDisconnected(data) {
+            showToast(data.message || '对手已掉线，等待重连...');
+            console.log('对手掉线', data);
+        }
+        
+        function handleOpponentReconnected(data) {
+            showToast(data.message || '对手已重连');
+            console.log('对手重连', data);
+        }
+        
+        function handleRoomExpired(data) {
+            alert(data.message || '房间已过期');
+            backToMenu();
         }
         
         function renderBoardFromState() {
@@ -1513,6 +1648,7 @@
             GameState.gameTime = config.time;
             GameState.currentPlayer = 1; // 黑方先行
             GameState.isPlaying = true;
+            GameState.isEnding = false;  // 重置结束状态
             GameState.moveHistory = [];
             GameState.startTime = Date.now();
             GameState.previewCell = null;
@@ -1776,13 +1912,24 @@
                 GameState.winningLine = winResult;
                 GameState.matchWins[player]++; // 更新比分
                 highlightWinningLine();
+                // 标记游戏为正在结束（防止 AI 继续落子）
+                GameState.isEnding = true;
                 // 延迟 2 秒显示结果，让玩家看清连成的五子
-                setTimeout(() => endGame(player), 2000);
+                GameState.endGameTimeout = setTimeout(() => {
+                    GameState.isEnding = false;
+                    GameState.endGameTimeout = null;
+                    endGame(player);
+                }, 2000);
                 return;
             }
             
             if (GameState.moveHistory.length === GameState.boardSize * GameState.boardSize) {
-                endGame(0);
+                GameState.isEnding = true;
+                GameState.endGameTimeout = setTimeout(() => {
+                    GameState.isEnding = false;
+                    GameState.endGameTimeout = null;
+                    endGame(0);
+                }, 1000);
                 return;
             }
             
@@ -1790,8 +1937,8 @@
             updateUI();
             
             // AI 模式下，轮到 AI 时自动下棋
-            if (GameState.gameMode === 'ai' && GameState.currentPlayer === GameState.aiColor) {
-                setTimeout(makeAIMove, 300);
+            if (GameState.gameMode === 'ai' && GameState.currentPlayer === GameState.aiColor && !GameState.isEnding) {
+                GameState.aiMoveTimeout = setTimeout(makeAIMove, 300);
             }
         }
         
@@ -1901,13 +2048,33 @@
             }
             
             // 延迟显示结果，让玩家看清连成的五子
-            setTimeout(() => endGame(data.winner), 2000);
+            GameState.endGameTimeout = setTimeout(() => endGame(data.winner), 2000);
         }
         
         function endGame(winner) {
+            // 清理定时器
+            if (GameState.endGameTimeout) {
+                clearTimeout(GameState.endGameTimeout);
+                GameState.endGameTimeout = null;
+            }
+            if (GameState.aiMoveTimeout) {
+                clearTimeout(GameState.aiMoveTimeout);
+                GameState.aiMoveTimeout = null;
+            }
+            
             GameState.isPlaying = false;
+            GameState.isEnding = false;  // 重置结束状态
             stopTimer();
             clearPreview();
+            
+            // 清理 AI Worker（防止延迟回调）
+            if (GameState.aiWorker) {
+                GameState.aiWorker.terminate();
+                GameState.aiWorker = null;
+            }
+            
+            // 重置 AI 请求状态
+            currentAiRequestId = null;
             
             // 游戏结束后移除最后一手标记，让序号能显示
             document.querySelectorAll('.piece.last-move').forEach(p => p.classList.remove('last-move'));
@@ -1967,6 +2134,17 @@
             document.getElementById('opponentMoves').textContent = GameState.players[oppColor].moves;
             document.getElementById('myUndo').textContent = GameState.players[myColor].undoLeft;
             document.getElementById('opponentUndo').textContent = GameState.players[oppColor].undoLeft;
+            
+            // AI 模式：显示思考状态
+            if (GameState.gameMode === 'ai') {
+                const isAiThinking = GameState.currentPlayer === GameState.aiColor && currentAiRequestId !== null;
+                const oppNameElement = document.querySelector('#opponentInfo .name');
+                if (isAiThinking) {
+                    oppNameElement.textContent = `${GameState.opponentName} 🤔`;
+                } else {
+                    oppNameElement.textContent = GameState.opponentName;
+                }
+            }
         }
         
         // ==================== 再来一局 - 修复版 ====================
@@ -2060,36 +2238,63 @@
             if (GameState.moveHistory.length === 0) return;
             
             // AI 模式：悔两步（玩家 + AI）
-            if (GameState.gameMode === 'ai' && GameState.moveHistory.length >= 2) {
-                // 撤销 AI 的棋
-                const aiMove = GameState.moveHistory.pop();
-                GameState.board[aiMove.row][aiMove.col] = 0;
-                GameState.players[aiMove.player].moves--;
-                let cell = document.querySelector(`.cell[data-row="${aiMove.row}"][data-col="${aiMove.col}"]`);
-                if (cell) {
-                    cell.innerHTML = '';
-                    cell.classList.remove('has-piece');
-                }
-            }
-            
-            // 撤销最后一步（玩家或 AI）
-            const lastMove = GameState.moveHistory.pop();
-            if (lastMove) {
-                GameState.board[lastMove.row][lastMove.col] = 0;
-                GameState.players[lastMove.player].moves--;
-                
-                const cell = document.querySelector(`.cell[data-row="${lastMove.row}"][data-col="${lastMove.col}"]`);
-                if (cell) {
-                    cell.innerHTML = '';
-                    cell.classList.remove('has-piece');
+            if (GameState.gameMode === 'ai') {
+                if (GameState.moveHistory.length >= 2) {
+                    // 撤销 AI 的棋（如果最后一步是 AI 下的）
+                    const lastMove = GameState.moveHistory[GameState.moveHistory.length - 1];
+                    if (lastMove.player === GameState.aiColor) {
+                        const aiMove = GameState.moveHistory.pop();
+                        GameState.board[aiMove.row][aiMove.col] = 0;
+                        GameState.players[aiMove.player].moves--;
+                        let cell = document.querySelector(`.cell[data-row="${aiMove.row}"][data-col="${aiMove.col}"]`);
+                        if (cell) {
+                            cell.innerHTML = '';
+                            cell.classList.remove('has-piece');
+                        }
+                    }
                 }
                 
-                GameState.currentPlayer = lastMove.player;
-            }
-            
-            // 本地模式：消耗悔棋次数
-            if (GameState.gameMode === 'local') {
-                GameState.players[lastMove.player].undoLeft--;
+                // 如果只剩一步，且这一步是玩家下的，可以撤销
+                if (GameState.moveHistory.length >= 1) {
+                    const lastMove = GameState.moveHistory[GameState.moveHistory.length - 1];
+                    // 只能撤销玩家下的棋
+                    if (lastMove.player !== GameState.aiColor) {
+                        const playerMove = GameState.moveHistory.pop();
+                        GameState.board[playerMove.row][playerMove.col] = 0;
+                        GameState.players[playerMove.player].moves--;
+                        
+                        const cell = document.querySelector(`.cell[data-row="${playerMove.row}"][data-col="${playerMove.col}"]`);
+                        if (cell) {
+                            cell.innerHTML = '';
+                            cell.classList.remove('has-piece');
+                        }
+                        
+                        GameState.currentPlayer = lastMove.player;
+                    } else {
+                        showToast('AI 刚下完棋，无法悔棋');
+                        return;
+                    }
+                }
+            } else {
+                // 本地/在线模式：撤销最后一步
+                const lastMove = GameState.moveHistory.pop();
+                if (lastMove) {
+                    GameState.board[lastMove.row][lastMove.col] = 0;
+                    GameState.players[lastMove.player].moves--;
+                    
+                    const cell = document.querySelector(`.cell[data-row="${lastMove.row}"][data-col="${lastMove.col}"]`);
+                    if (cell) {
+                        cell.innerHTML = '';
+                        cell.classList.remove('has-piece');
+                    }
+                    
+                    GameState.currentPlayer = lastMove.player;
+                }
+                
+                // 本地模式：消耗悔棋次数
+                if (GameState.gameMode === 'local') {
+                    GameState.players[lastMove.player].undoLeft--;
+                }
             }
             
             // 标记新的最后一手

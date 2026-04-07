@@ -513,9 +513,13 @@ function handlePlayAgain(ws) {
   room.players[0].color = 1;
   room.players[1].color = 2;
   
-  // 更新 clients 映射
-  clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode, color: 1 });
-  clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode, color: 2 });
+  // 更新 clients 映射（添加空值检查）
+  if (room.players[0] && room.players[0].ws) {
+    clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode, color: 1 });
+  }
+  if (room.players[1] && room.players[1].ws) {
+    clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode, color: 2 });
+  }
   
   broadcastToRoom(roomCode, { type: 'play_again', newColor: color === 1 ? 2 : 1 });
 }
