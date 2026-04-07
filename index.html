@@ -2183,6 +2183,16 @@
         function restartGame() {
             document.getElementById('winModal').style.display = 'none';
             
+            // 清理旧游戏的 AI 状态
+            if (GameState.aiMoveTimeout) {
+                clearTimeout(GameState.aiMoveTimeout);
+                GameState.aiMoveTimeout = null;
+            }
+            
+            // 重置 AI 请求计数器，防止旧请求阻塞
+            currentAiRequestId = null;
+            aiRequestCounter = 0;
+            
             // 获取玩家名字
             const myName = GameState.myName;
             const oppName = GameState.opponentName || 'AI';
