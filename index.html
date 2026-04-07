@@ -1697,26 +1697,48 @@
             const oppColor = myColor === 1 ? 2 : 1;
             
             // 己方信息（棋盘下方）
-            document.getElementById('myColorIcon').textContent = myColor === 1 ? '⚫' : '⚪';
-            document.getElementById('myName').textContent = GameState.players[myColor].name;
-            document.getElementById('myTime').textContent = formatTime(GameState.players[myColor].time);
-            document.getElementById('myMoves').textContent = GameState.players[myColor].moves;
-            document.getElementById('myUndo').textContent = GameState.players[myColor].undoLeft;
+            const myColorIcon = document.getElementById('myColorIcon');
+            if (myColorIcon) myColorIcon.textContent = myColor === 1 ? '⚫' : '⚪';
+            
+            const myName = document.getElementById('myName');
+            if (myName) myName.textContent = GameState.players[myColor].name;
+            
+            const myTime = document.getElementById('myTime');
+            if (myTime) myTime.textContent = formatTime(GameState.players[myColor].time);
+            
+            const myMoves = document.getElementById('myMoves');
+            if (myMoves) myMoves.textContent = GameState.players[myColor].moves;
+            
+            const myUndo = document.getElementById('myUndo');
+            if (myUndo) myUndo.textContent = GameState.players[myColor].undoLeft;
             
             // 对手信息（棋盘上方）
-            document.getElementById('opponentColor').textContent = oppColor === 1 ? '⚫' : '⚪';
-            document.getElementById('opponentName').textContent = GameState.players[oppColor].name;
-            document.getElementById('opponentTime').textContent = formatTime(GameState.players[oppColor].time);
-            document.getElementById('opponentMoves').textContent = GameState.players[oppColor].moves;
-            document.getElementById('opponentUndo').textContent = GameState.players[oppColor].undoLeft;
+            const opponentColor = document.getElementById('opponentColor');
+            if (opponentColor) opponentColor.textContent = oppColor === 1 ? '⚫' : '⚪';
+            
+            const opponentName = document.getElementById('opponentName');
+            if (opponentName) opponentName.textContent = GameState.players[oppColor].name;
+            
+            const opponentTime = document.getElementById('opponentTime');
+            if (opponentTime) opponentTime.textContent = formatTime(GameState.players[oppColor].time);
+            
+            const opponentMoves = document.getElementById('opponentMoves');
+            if (opponentMoves) opponentMoves.textContent = GameState.players[oppColor].moves;
+            
+            const opponentUndo = document.getElementById('opponentUndo');
+            if (opponentUndo) opponentUndo.textContent = GameState.players[oppColor].undoLeft;
             
             // 在线模式显示比分和聊天栏
-            if (GameState.gameMode === 'online') {
-                document.getElementById('scoreDisplay').style.display = 'block';
-                document.getElementById('chatBar').style.display = 'flex';
-            } else {
-                document.getElementById('scoreDisplay').style.display = 'none';
-                document.getElementById('chatBar').style.display = 'none';
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            const chatBar = document.getElementById('chatBar');
+            if (scoreDisplay && chatBar) {
+                if (GameState.gameMode === 'online') {
+                    scoreDisplay.style.display = 'block';
+                    chatBar.style.display = 'flex';
+                } else {
+                    scoreDisplay.style.display = 'none';
+                    chatBar.style.display = 'none';
+                }
             }
         }
         
@@ -1869,6 +1891,7 @@
         
         function handleCellClick(row, col) {
             if (!GameState.isPlaying) return;
+            if (GameState.isEnding) return; // 游戏正在结束时不允许落子
             if (GameState.board[row][col] !== 0) return;
             
             if (GameState.gameMode === 'online' && GameState.currentPlayer !== GameState.myColor) return;
@@ -1897,6 +1920,7 @@
         }
         
         function confirmPlacePiece(row, col) {
+            if (GameState.isEnding) return; // 游戏正在结束时不允许确认落子
             if (GameState.gameMode === 'online') {
                 sendToServer({ type: 'place_piece', row, col });
             } else {
@@ -2155,23 +2179,6 @@
             document.getElementById('winModal').style.display = 'none';
             GameState.currentRound++;
             
-            // 先完全结束当前游戏（清理所有定时器、AI Worker）
-            stopTimer();
-            if (GameState.endGameTimeout) {
-                clearTimeout(GameState.endGameTimeout);
-                GameState.endGameTimeout = null;
-            }
-            if (GameState.aiMoveTimeout) {
-                clearTimeout(GameState.aiMoveTimeout);
-                GameState.aiMoveTimeout = null;
-            }
-            if (GameState.aiWorker) {
-                GameState.aiWorker.terminate();
-                GameState.aiWorker = null;
-            }
-            currentAiRequestId = null;
-            GameState.isPlaying = false;
-            
             if (GameState.gameMode === 'online') {
                 // 在线模式：通知服务端交换颜色
                 const newMyColor = GameState.myColor === 1 ? 2 : 1;
@@ -2200,19 +2207,9 @@
         function restartGame() {
             document.getElementById('winModal').style.display = 'none';
             
-            // 清理旧游戏的 AI 状态
-            if (GameState.aiMoveTimeout) {
-                clearTimeout(GameState.aiMoveTimeout);
-                GameState.aiMoveTimeout = null;
-            }
-            
-            // 重置 AI 请求计数器，防止旧请求阻塞
-            currentAiRequestId = null;
-            aiRequestCounter = 0;
-            
-            // 获取玩家名字
-            const myName = GameState.myName;
-            const oppName = GameState.opponentName || 'AI';
+            // 获取玩家名字，确保有默认值
+            const myName = GameState.myName || '玩家';
+            const oppName = GameState.opponentName || (GameState.gameMode === 'ai' ? 'AI' : '对手');
             
             // 根据当前 myColor 决定谁执黑谁执白
             // player1 = 黑方, player2 = 白方
@@ -2231,6 +2228,12 @@
         
         // ==================== 悔棋功能 - 修复版 ====================
         function requestUndo() {
+            // 游戏结束后不允许悔棋
+            if (!GameState.isPlaying) {
+                showToast('游戏已结束，无法悔棋');
+                return;
+            }
+            
             if (GameState.moveHistory.length === 0) {
                 showToast('没有可以悔棋的步骤');
                 return;
