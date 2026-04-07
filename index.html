@@ -20,10 +20,6 @@
         
         .container { max-width: 1200px; width: 100%; }
         
-        header { text-align: center; margin-bottom: 15px; }
-        header h1 { font-size: 1.8em; margin-bottom: 3px; }
-        header p { color: #aaa; font-size: 13px; }
-        
         .menu-screen {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -527,7 +523,6 @@
         @media (max-width: 600px) {
             .cell { width: 22px !important; height: 22px !important; }
             .piece { width: 18px; height: 18px; }
-            header h1 { font-size: 1.4em; }
             .player-info { padding: 8px 12px; min-width: 100px; }
             .player-info .name { font-size: 12px; }
             .player-info .time { font-size: 16px; }
@@ -538,10 +533,7 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>⚫ 五子棋 ⚪</h1>
-            <p>本地对战 · 在线对战 · 对局记录</p>
-        </header>
+        <div class="container">
         
         <div class="menu-screen" id="menuScreen">
             <div class="menu-content">
