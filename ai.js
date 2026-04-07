@@ -128,30 +128,30 @@ class GomokuAI {
     if (situation.advantageRatio > 0.3) {
       // 明显优势：降低防守权重，加强进攻
       dynamicMultiplier *= 0.7;
-      console.log('AI: 明显优势，加强进攻', { advantageRatio: situation.advantageRatio.toFixed(2) });
+      // console.log('AI: 明显优势，加强进攻', { advantageRatio: situation.advantageRatio.toFixed(2) });
     } else if (situation.advantageRatio > 0.1) {
       // 轻微优势：略微降低防守权重
       dynamicMultiplier *= 0.9;
-      console.log('AI: 轻微优势，偏向进攻', { advantageRatio: situation.advantageRatio.toFixed(2) });
+      // console.log('AI: 轻微优势，偏向进攻', { advantageRatio: situation.advantageRatio.toFixed(2) });
     } else if (situation.advantageRatio < -0.3) {
       // 明显劣势：大幅提高防守权重，加强防守
       dynamicMultiplier *= 1.5;
-      console.log('AI: 明显劣势，加强防守', { advantageRatio: situation.advantageRatio.toFixed(2) });
+      // console.log('AI: 明显劣势，加强防守', { advantageRatio: situation.advantageRatio.toFixed(2) });
     } else if (situation.advantageRatio < -0.1) {
       // 轻微劣势：略微提高防守权重
       dynamicMultiplier *= 1.2;
-      console.log('AI: 轻微劣势，偏向防守', { advantageRatio: situation.advantageRatio.toFixed(2) });
+      // console.log('AI: 轻微劣势，偏向防守', { advantageRatio: situation.advantageRatio.toFixed(2) });
     }
     
     // 根据游戏阶段调整
     if (complexity > 0.8) {
       // 终局阶段：进一步提高防守权重
       dynamicMultiplier *= 1.2;
-      console.log('AI: 终局阶段，提高防守权重');
+      // console.log('AI: 终局阶段，提高防守权重');
     } else if (complexity < 0.2) {
       // 开局阶段：略微降低防守权重
       dynamicMultiplier *= 0.9;
-      console.log('AI: 开局阶段，降低防守权重');
+      // console.log('AI: 开局阶段，降低防守权重');
     }
     
     return dynamicMultiplier;
