@@ -1549,6 +1549,9 @@
             stopTimer();
             clearPreview();
             
+            // 游戏结束后移除最后一手标记，让序号能显示
+            document.querySelectorAll('.piece.last-move').forEach(p => p.classList.remove('last-move'));
+            
             // 游戏结束后显示棋子序号
             toggleMoveNumbers(true);
             
