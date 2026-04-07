@@ -1174,8 +1174,8 @@
             const size = parseInt(document.getElementById('aiBoardSize').value);
             const time = parseInt(document.getElementById('aiGameTime').value);
             
-            // 初始化 AI 引擎
-            aiEngine = new GomokuAI(difficulty);
+            // 初始化 AI 引擎（传入棋盘大小）
+            aiEngine = new GomokuAI(difficulty, size);
             
             GameState.undoLimit = 999; // AI 模式允许无限悔棋
             GameState.matchMode = 1;
@@ -1208,12 +1208,72 @@
                 return;
             }
             
-            console.log('AI: 开始思考...', { difficulty: GameState.aiDifficulty, aiColor: GameState.aiColor });
+            console.log('AI: 开始思考...', { difficulty: GameState.aiDifficulty, aiColor: GameState.aiColor, boardSize: GameState.boardSize });
             
             // 记录开始时间（用于扣除 AI 思考时间）
             const thinkStartTime = Date.now();
             
-            // 使用难度配置的时间限制
+            // 使用 Web Worker 进行 AI 计算（避免阻塞 UI）
+            if (window.Worker) {
+                // 创建 Worker
+                if (!GameState.aiWorker) {
+                    GameState.aiWorker = new Worker('ai-worker.js');
+                }
+                
+                // 获取配置的时间限制
+                const timeLimit = aiEngine.depthMap[GameState.aiDifficulty]?.timeLimit || 1000;
+                
+                // 发送计算请求
+                GameState.aiWorker.postMessage({
+                    board: GameState.board,
+                    player: GameState.aiColor,
+                    difficulty: GameState.aiDifficulty,
+                    boardSize: GameState.boardSize,
+                    timeLimit: timeLimit
+                });
+                
+                // 接收计算结果
+                GameState.aiWorker.onmessage = function(e) {
+                    const result = e.data;
+                    
+                    if (result.success && result.move) {
+                        // 计算 AI 思考耗时（秒）
+                        const thinkTime = Math.ceil(result.thinkTime / 1000);
+                        
+                        // 扣除 AI 的思考时间
+                        if (thinkTime > 0 && GameState.players[GameState.aiColor]) {
+                            GameState.players[GameState.aiColor].time = Math.max(0, GameState.players[GameState.aiColor].time - thinkTime);
+                            updateUI();
+                            
+                            // 检查 AI 是否超时
+                            if (GameState.players[GameState.aiColor].time <= 0) {
+                                console.log('AI: 超时判负');
+                                const winner = GameState.aiColor === 1 ? 2 : 1;
+                                endGame(winner);
+                                return;
+                            }
+                        }
+                        
+                        console.log('AI: 找到最佳走法', result.move, `思考耗时: ${result.thinkTime}ms`);
+                        doPlacePiece(result.move.row, result.move.col, GameState.aiColor);
+                    } else {
+                        console.log('AI: 计算失败', result.error);
+                    }
+                };
+                
+                GameState.aiWorker.onerror = function(err) {
+                    console.error('AI Worker 错误:', err);
+                    // 降级到主线程计算
+                    computeAIMoveMain(thinkStartTime);
+                };
+            } else {
+                // 不支持 Worker，降级到主线程计算
+                computeAIMoveMain(thinkStartTime);
+            }
+        }
+        
+        // 主线程 AI 计算（降级方案）
+        function computeAIMoveMain(thinkStartTime) {
             const timeLimit = aiEngine.depthMap[GameState.aiDifficulty]?.timeLimit || 1000;
             const bestMove = aiEngine.getBestMove(GameState.board, GameState.aiColor, timeLimit);
             
@@ -1223,7 +1283,6 @@
             // 扣除 AI 的思考时间
             if (thinkTime > 0 && GameState.players[GameState.aiColor]) {
                 GameState.players[GameState.aiColor].time = Math.max(0, GameState.players[GameState.aiColor].time - thinkTime);
-                // 更新显示
                 updateUI();
                 
                 // 检查 AI 是否超时

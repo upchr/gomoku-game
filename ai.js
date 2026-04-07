@@ -6,17 +6,13 @@
  */
 
 class GomokuAI {
-  constructor(difficulty = 'medium') {
+  constructor(difficulty = 'medium', boardSize = 15) {
     this.difficulty = difficulty;
-    this.size = 15;
+    this.size = boardSize;
     
-    // 根据难度设置搜索深度和时间限制
-    // 注意：深度太深会导致 JS 单线程阻塞，即使有时间限制也无法及时返回
-    this.depthMap = {
-      'easy': { min: 2, max: 4, timeLimit: 200 },
-      'medium': { min: 4, max: 6, timeLimit: 500 },
-      'hard': { min: 6, max: 8, timeLimit: 1000 }
-    };
+    // 根据棋盘大小和难度设置参数
+    this.depthConfig = this.getDepthConfig(difficulty, boardSize);
+    this.timeLimitConfig = this.getTimeLimitConfig(difficulty, boardSize);
     
     // 初始化 Zobrist 哈希表
     this.zobrist = this.initZobrist();
@@ -53,6 +49,60 @@ class GomokuAI {
     
     // 开局库（前几步的定式走法）
     this.openingBook = this.initOpeningBook();
+    
+    // 暴露 depthMap 供前端读取
+    this.depthMap = {
+      'easy': { timeLimit: this.getTimeLimitConfig('easy', boardSize) },
+      'medium': { timeLimit: this.getTimeLimitConfig('medium', boardSize) },
+      'hard': { timeLimit: this.getTimeLimitConfig('hard', boardSize) }
+    };
+  }
+  
+  // 根据棋盘大小和难度获取搜索深度配置
+  getDepthConfig(difficulty, boardSize) {
+    // 小棋盘分支因子小，可以搜索更深
+    // 大棋盘分支因子大，需要限制深度
+    const depthMap = {
+      13: {
+        'easy': { min: 3, max: 5 },
+        'medium': { min: 5, max: 7 },
+        'hard': { min: 7, max: 9 }
+      },
+      15: {
+        'easy': { min: 2, max: 4 },
+        'medium': { min: 4, max: 6 },
+        'hard': { min: 6, max: 8 }
+      },
+      19: {
+        'easy': { min: 2, max: 3 },
+        'medium': { min: 3, max: 5 },
+        'hard': { min: 5, max: 6 }
+      }
+    };
+    return depthMap[boardSize]?.[difficulty] || depthMap[15][difficulty];
+  }
+  
+  // 根据棋盘大小和难度获取时间限制
+  getTimeLimitConfig(difficulty, boardSize) {
+    // 大棋盘需要更多思考时间
+    const timeMap = {
+      13: {
+        'easy': 200,
+        'medium': 400,
+        'hard': 800
+      },
+      15: {
+        'easy': 200,
+        'medium': 500,
+        'hard': 1000
+      },
+      19: {
+        'easy': 300,
+        'medium': 700,
+        'hard': 1500
+      }
+    };
+    return timeMap[boardSize]?.[difficulty] || timeMap[15][difficulty];
   }
   
   // 初始化开局库
@@ -197,8 +247,7 @@ class GomokuAI {
    */
   getBestMove(board, player, timeLimit = null) {
     // 使用传入的时间限制，或使用配置的时间限制
-    const depthConfig = this.depthMap[this.difficulty];
-    this.timeLimit = timeLimit || depthConfig.timeLimit || 1000;
+    this.timeLimit = timeLimit || this.timeLimitConfig || 1000;
     this.startTime = Date.now();
     this.nodeCount = 0;
     this.tableAge++;
@@ -221,7 +270,7 @@ class GomokuAI {
     let bestScore = -Infinity;
     
     // 迭代加深搜索
-    for (let depth = 2; depth <= depthConfig.max; depth += 2) {
+    for (let depth = 2; depth <= this.depthConfig.max; depth += 2) {
       if (Date.now() - this.startTime > this.timeLimit * 0.7) {
         break;
       }
@@ -239,7 +288,7 @@ class GomokuAI {
       }
       
       // 达到配置的最大深度
-      if (depth >= depthConfig.max) {
+      if (depth >= this.depthConfig.max) {
         break;
       }
     }
