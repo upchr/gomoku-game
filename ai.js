@@ -109,7 +109,7 @@ class GomokuAI {
   findBookMove(board, player) {
     // 简单实现：如果有成双三或活四机会，优先下
     // 这里可以扩展更复杂的定式识别
-    const candidates = this.getCandidates(board);
+    const candidates = this.getCandidateMoves(board);
     for (const move of candidates) {
       const score = this.quickEvaluate(board, move.row, move.col, player);
       if (score >= this.patternScores.LIVE_FOUR) {
@@ -121,12 +121,7 @@ class GomokuAI {
   
   // 快速评估（用于开局库）
   quickEvaluate(board, row, col, player) {
-    let score = 0;
-    for (const [dx, dy] of this.directions) {
-      const line = this.analyzeLine(board, row, col, dx, dy, player);
-      score += this.scorePattern(line);
-    }
-    return score;
+    return this.evaluatePoint(board, row, col, player);
   }
   
   // 统计棋子数量
