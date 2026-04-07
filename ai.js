@@ -11,10 +11,11 @@ class GomokuAI {
     this.size = 15;
     
     // 根据难度设置搜索深度和时间限制
+    // 注意：深度太深会导致 JS 单线程阻塞，即使有时间限制也无法及时返回
     this.depthMap = {
-      'easy': { min: 4, max: 6, timeLimit: 300 },
-      'medium': { min: 8, max: 12, timeLimit: 1000 },
-      'hard': { min: 14, max: 18, timeLimit: 2000 }
+      'easy': { min: 2, max: 4, timeLimit: 200 },
+      'medium': { min: 4, max: 6, timeLimit: 500 },
+      'hard': { min: 6, max: 8, timeLimit: 1000 }
     };
     
     // 初始化 Zobrist 哈希表

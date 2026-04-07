@@ -1210,12 +1210,33 @@
             
             console.log('AI: 开始思考...', { difficulty: GameState.aiDifficulty, aiColor: GameState.aiColor });
             
+            // 记录开始时间（用于扣除 AI 思考时间）
+            const thinkStartTime = Date.now();
+            
             // 使用难度配置的时间限制
             const timeLimit = aiEngine.depthMap[GameState.aiDifficulty]?.timeLimit || 1000;
             const bestMove = aiEngine.getBestMove(GameState.board, GameState.aiColor, timeLimit);
             
+            // 计算 AI 思考耗时（秒）
+            const thinkTime = Math.ceil((Date.now() - thinkStartTime) / 1000);
+            
+            // 扣除 AI 的思考时间
+            if (thinkTime > 0 && GameState.players[GameState.aiColor]) {
+                GameState.players[GameState.aiColor].time = Math.max(0, GameState.players[GameState.aiColor].time - thinkTime);
+                // 更新显示
+                updateUI();
+                
+                // 检查 AI 是否超时
+                if (GameState.players[GameState.aiColor].time <= 0) {
+                    console.log('AI: 超时判负');
+                    const winner = GameState.aiColor === 1 ? 2 : 1;
+                    endGame(winner);
+                    return;
+                }
+            }
+            
             if (bestMove) {
-                console.log('AI: 找到最佳走法', bestMove);
+                console.log('AI: 找到最佳走法', bestMove, `思考耗时: ${thinkTime}秒`);
                 doPlacePiece(bestMove.row, bestMove.col, GameState.aiColor);
             } else {
                 console.log('AI: 未找到走法');
