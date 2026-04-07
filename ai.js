@@ -10,11 +10,11 @@ class GomokuAI {
     this.difficulty = difficulty;
     this.size = 15;
     
-    // 根据难度设置搜索深度
+    // 根据难度设置搜索深度和时间限制
     this.depthMap = {
-      'easy': { min: 4, max: 6 },
-      'medium': { min: 8, max: 10 },
-      'hard': { min: 12, max: 14 }
+      'easy': { min: 4, max: 6, timeLimit: 300 },
+      'medium': { min: 8, max: 12, timeLimit: 1000 },
+      'hard': { min: 14, max: 18, timeLimit: 2000 }
     };
     
     // 初始化 Zobrist 哈希表
@@ -49,6 +49,95 @@ class GomokuAI {
     
     // 方向数组（四个方向）
     this.directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    
+    // 开局库（前几步的定式走法）
+    this.openingBook = this.initOpeningBook();
+  }
+  
+  // 初始化开局库
+  initOpeningBook() {
+    return {
+      // 空棋盘，下天元
+      'empty': { row: 7, col: 7 },
+      
+      // 对手下天元后的应对
+      'center_response': [
+        { row: 8, col: 6 }, { row: 6, col: 8 }, { row: 8, col: 8 }, { row: 6, col: 6 }
+      ],
+      
+      // 花月定式（斜向开局）
+      'huayue': [
+        [[7,7], [6,8], [8,6]], // 序列1
+        [[7,7], [8,8], [6,6]]  // 序列2
+      ],
+      
+      // 浦月定式（直指开局）
+      'puyue': [
+        [[7,7], [7,8], [7,6]]
+      ]
+    };
+  }
+  
+  // 检查是否可以使用开局库
+  checkOpeningBook(board, player) {
+    const totalPieces = this.countPieces(board);
+    
+    // 空棋盘，下天元
+    if (totalPieces === 0) {
+      return this.openingBook.empty;
+    }
+    
+    // 只有1颗棋子（对手下了天元）
+    if (totalPieces === 1) {
+      if (board[7][7] !== 0) {
+        const responses = this.openingBook.center_response;
+        return responses[Math.floor(Math.random() * responses.length)];
+      }
+    }
+    
+    // 开局阶段（前10步），尝试找定式
+    if (totalPieces < 10) {
+      // 检查是否在花月/浦月等定式中
+      const bookMove = this.findBookMove(board, player);
+      if (bookMove) return bookMove;
+    }
+    
+    return null;
+  }
+  
+  // 查找定式走法
+  findBookMove(board, player) {
+    // 简单实现：如果有成双三或活四机会，优先下
+    // 这里可以扩展更复杂的定式识别
+    const candidates = this.getCandidates(board);
+    for (const move of candidates) {
+      const score = this.quickEvaluate(board, move.row, move.col, player);
+      if (score >= this.patternScores.LIVE_FOUR) {
+        return move;
+      }
+    }
+    return null;
+  }
+  
+  // 快速评估（用于开局库）
+  quickEvaluate(board, row, col, player) {
+    let score = 0;
+    for (const [dx, dy] of this.directions) {
+      const line = this.analyzeLine(board, row, col, dx, dy, player);
+      score += this.scorePattern(line);
+    }
+    return score;
+  }
+  
+  // 统计棋子数量
+  countPieces(board) {
+    let count = 0;
+    for (let i = 0; i < this.size; i++) {
+      for (let j = 0; j < this.size; j++) {
+        if (board[i][j] !== 0) count++;
+      }
+    }
+    return count;
   }
   
   // 创建二维数组
@@ -107,11 +196,13 @@ class GomokuAI {
    * 获取最佳走法
    * @param {number[][]} board - 15x15 棋盘，0=空，1=黑，2=白
    * @param {number} player - 当前玩家，1=黑，2=白
-   * @param {number} timeLimit - 时间限制（毫秒）
+   * @param {number} timeLimit - 时间限制（毫秒），可选
    * @returns {{row: number, col: number}} - 最佳走法
    */
-  getBestMove(board, player, timeLimit = 1000) {
-    this.timeLimit = timeLimit;
+  getBestMove(board, player, timeLimit = null) {
+    // 使用传入的时间限制，或使用配置的时间限制
+    const depthConfig = this.depthMap[this.difficulty];
+    this.timeLimit = timeLimit || depthConfig.timeLimit || 1000;
     this.startTime = Date.now();
     this.nodeCount = 0;
     this.tableAge++;
@@ -124,7 +215,12 @@ class GomokuAI {
     // 重置历史启发表
     this.historyTable = this.createArray2D(0);
     
-    const depthConfig = this.depthMap[this.difficulty];
+    // 检查开局库（前10步）
+    const bookMove = this.checkOpeningBook(board, player);
+    if (bookMove) {
+      return bookMove;
+    }
+    
     let bestMove = null;
     let bestScore = -Infinity;
     
@@ -436,16 +532,55 @@ class GomokuAI {
   // 评估单个点
   evaluatePoint(board, row, col, player) {
     let score = 0;
+    let patterns = [];
     
     for (const [dx, dy] of this.directions) {
       const result = this.countLine(board, row, col, dx, dy, player);
-      score += this.getPatternScore(result.count, result.open);
+      const patternScore = this.getPatternScore(result.count, result.open);
+      score += patternScore;
+      patterns.push({ count: result.count, open: result.open, score: patternScore });
     }
+    
+    // 组合棋型加分
+    score += this.evaluateCombinations(patterns);
     
     // 加上位置权重
     score += this.positionWeight[row][col];
     
     return score;
+  }
+  
+  // 评估组合棋型（双活三、冲四活三等）
+  evaluateCombinations(patterns) {
+    let bonus = 0;
+    
+    // 统计各种棋型数量
+    let liveThree = 0;
+    let rushFour = 0;
+    let liveTwo = 0;
+    
+    for (const p of patterns) {
+      if (p.score === this.patternScores.LIVE_THREE) liveThree++;
+      else if (p.score === this.patternScores.RUSH_FOUR) rushFour++;
+      else if (p.score === this.patternScores.LIVE_TWO) liveTwo++;
+    }
+    
+    // 双活三 = 50000（几乎必胜）
+    if (liveThree >= 2) {
+      bonus += 50000;
+    }
+    
+    // 冲四活三 = 30000（很强）
+    if (rushFour >= 1 && liveThree >= 1) {
+      bonus += 30000;
+    }
+    
+    // 双活二 = 500（有潜力）
+    if (liveTwo >= 2) {
+      bonus += 500;
+    }
+    
+    return bonus;
   }
   
   // 统计一条线上的棋子
