@@ -466,11 +466,6 @@ class GomokuAI {
     return null;
   }
   
-  // 快速评估（用于开局库）
-  quickEvaluate(board, row, col, player) {
-    return this.evaluatePoint(board, row, col, player);
-  }
-  
   // 统计棋子数量
   countPieces(board) {
     let count = 0;
@@ -578,8 +573,7 @@ class GomokuAI {
     let adjustedTimeLimit = timeLimit || this.timeLimitConfig || 1000;
     
     if (complexity < 0.1) {
-      // 开局阶段（棋子少于10%）：标准时间
-      // 保持 adjustedTimeLimit 不变
+      // 开局阶段（棋子少于10%）：使用标准时间限制
     } else if (complexity < 0.25) {
       // 早期（10%-25%）：增加30%时间
       adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.3);
@@ -708,7 +702,7 @@ class GomokuAI {
         const allMoves = this.getCandidateMoves(board);
         for (const move of allMoves) {
           board[move.row][move.col] = player;
-          const score = this.evaluatePoint(board, move.row, move.col, player);
+          const score = this.evaluatePoint(board, move.row, move.col, player, true);
           board[move.row][move.col] = 0;
           
           if (Math.abs(score - bestScore) <= scoreTolerance) {
@@ -772,18 +766,17 @@ class GomokuAI {
   checkThreats(board, player) {
     const threats = [];
 
-    for (let i = 0; i < this.size; i++) {
-      for (let j = 0; j < this.size; j++) {
-        if (board[i][j] === 0) {
-          board[i][j] = player;
-          // 不计算组合棋型，保持与其他函数一致
-          const score = this.evaluatePoint(board, i, j, player, false);
-          board[i][j] = 0;
+    // 优化：只扫描候选点而不是整个棋盘
+    const candidates = this.getCandidateMoves(board);
 
-          if (score >= this.patternScores.LIVE_THREE) {
-            threats.push({ row: i, col: j, score, type: score >= this.patternScores.LIVE_FOUR ? 'LIVE_FOUR' : score >= this.patternScores.RUSH_FOUR ? 'RUSH_FOUR' : 'LIVE_THREE' });
-          }
-        }
+    for (const move of candidates) {
+      board[move.row][move.col] = player;
+      // 不计算组合棋型，保持与其他函数一致
+      const score = this.evaluatePoint(board, move.row, move.col, player, false);
+      board[move.row][move.col] = 0;
+
+      if (score >= this.patternScores.LIVE_THREE) {
+        threats.push({ row: move.row, col: move.col, score, type: score >= this.patternScores.LIVE_FOUR ? 'LIVE_FOUR' : score >= this.patternScores.RUSH_FOUR ? 'RUSH_FOUR' : 'LIVE_THREE' });
       }
     }
 
@@ -1187,39 +1180,6 @@ class GomokuAI {
       return moves.slice(0, 30);
     }
     return moves;
-  }
-  
-  // 获取某个点的棋型信息
-  getPointPatterns(board, row, col, player) {
-    const patterns = [];
-    
-    // 先模拟落子
-    board[row][col] = player;
-    
-    for (const [dx, dy] of this.directions) {
-      const result = this.countLine(board, row, col, dx, dy, player);
-      patterns.push({ count: result.count, open: result.open });
-    }
-    
-    // 撤销模拟
-    board[row][col] = 0;
-    
-    return patterns;
-  }
-  
-  // 检查是否有危险棋型（双活三、冲四活三等）
-  hasDangerousPatterns(patterns) {
-    let liveThree = 0;
-    let rushFour = 0;
-    
-    for (const p of patterns) {
-      const score = this.getPatternScore(p.count, p.open);
-      if (score === this.patternScores.LIVE_THREE) liveThree++;
-      else if (score === this.patternScores.RUSH_FOUR) rushFour++;
-    }
-    
-    // 双活三或冲四活三
-    return (liveThree >= 2) || (rushFour >= 1 && liveThree >= 1);
   }
   
   // 排序走法（历史启发 + 位置权重）
