@@ -1608,6 +1608,7 @@
                 GameState.roomCode = data.roomCode;
                 GameState.myColor = data.color; // 房主执黑
                 GameState.myUserId = data.userId; // 存储用户ID
+                GameState.myPlayerIndex = 0; // 房主在 players 数组中的索引
                 GameState.isHost = true; // 标记为房主
 
                 document.getElementById('displayRoomCode').textContent = data.roomCode;
@@ -1630,6 +1631,7 @@
                 GameState.roomCode = data.roomCode;
                 GameState.myColor = data.color; // 加入者执白
                 GameState.myUserId = data.userId; // 存储用户ID
+                GameState.myPlayerIndex = 1; // 加入者在 players 数组中的索引
                 GameState.isHost = false; // 标记为加入者
                 GameState.myName = document.getElementById('onlineNickname').value || '玩家';
                 GameState.opponentName = data.opponent.name; // 对手名字
@@ -1676,6 +1678,14 @@
                 GameState.currentPlayer = data.currentPlayer;
                 GameState.moveHistory = data.moves;
                 GameState.players = data.players;
+
+                // 更新自己的位置和颜色
+                if (data.playerIndex !== undefined) {
+                    GameState.myPlayerIndex = data.playerIndex;
+                }
+                if (data.color !== undefined) {
+                    GameState.myColor = data.color;
+                }
 
                 // 隐藏重连提示
                 document.getElementById('reconnectOverlay').style.display = 'none';
@@ -2454,8 +2464,11 @@
                 const targetWins = Math.ceil(GameState.matchMode / 2);
                 GameState.matchEnded = GameState.matchWins[1] >= targetWins || GameState.matchWins[2] >= targetWins;
 
-                const myReady = data.ready[GameState.myColor - 1];
-                const opponentReady = data.ready[GameState.myColor === 1 ? 1 : 0];
+                // 修复：使用玩家位置索引而不是 color 值来读取准备状态
+                // data.ready 数组是 [房主状态, 加入者状态]，不是基于 color 的
+                const myReady = GameState.myPlayerIndex !== undefined ? data.ready[GameState.myPlayerIndex] : data.ready[GameState.myColor - 1];
+                const opponentIndex = GameState.myPlayerIndex === 0 ? 1 : 0;
+                const opponentReady = GameState.myPlayerIndex !== undefined ? data.ready[opponentIndex] : data.ready[GameState.myColor === 1 ? 1 : 0];
 
                 // 更新按钮文本（只有在自己未准备时才更新）
                 if (!myReady) {
@@ -2530,10 +2543,12 @@
 
                 // 更新玩家数据
                 if (data.players) {
-                    // 找到我当前的颜色
+                    // 找到我当前的颜色和位置
                     const myPlayer = data.players.find(p => p && p.id === GameState.myUserId);
                     if (myPlayer) {
                         GameState.myColor = myPlayer.color;
+                        // 更新 myPlayerIndex
+                        GameState.myPlayerIndex = data.players.indexOf(myPlayer);
                         // 根据颜色找到对手的名字
                         const opponent = data.players.find(p => p && p.color !== myPlayer.color);
                         if (opponent) {

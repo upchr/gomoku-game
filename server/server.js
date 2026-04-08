@@ -122,42 +122,49 @@ function broadcastToRoom(roomCode, data, excludeWs = null) {
 function handlePlayerDisconnect(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
-  
+
   if (!room) {
     clients.delete(ws);
     return;
   }
-  
-  const player = room.players[color - 1];
+
+  // 修复：找到掉线玩家在 players 数组中的实际索引
+  const playerIndex = room.players.findIndex(p => p && p.ws === ws);
+  if (playerIndex === -1) {
+    clients.delete(ws);
+    return;
+  }
+
+  const player = room.players[playerIndex];
   if (player) {
     player.ws = null;  // 清除 ws 引用
     player.disconnectedAt = Date.now();
   }
-  
+
   clients.delete(ws);
-  
+
   // 如果游戏正在进行，通知对手
   if (room.status === 'playing') {
-    const opponentColor = color === 1 ? 2 : 1;
-    const opponent = room.players[opponentColor - 1];
-    
+    // 修复：通过 WebSocket 连接对比来找到实际对手
+    const opponent = room.players.find(p => p && p.ws && p.ws !== ws);
+
     if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
-      send(opponent.ws, { 
-        type: 'opponent_disconnected', 
+      send(opponent.ws, {
+        type: 'opponent_disconnected',
         message: '对手已掉线，等待重连...',
         reconnectTimeout: RECONNECT_TIMEOUT
       });
     }
-    
+
     // 设置重连超时
     room.reconnectTimer = setTimeout(() => {
       // 超时未重连，判定掉线方输掉当前局
-      if (room.players[color - 1] && !room.players[color - 1].ws) {
+      if (room.players[playerIndex] && !room.players[playerIndex].ws) {
         // 找到掉线方的实际身份（房主还是加入者）
-        const disconnectedPlayer = room.players[color - 1];
+        const disconnectedPlayer = room.players[playerIndex];
         const isHost = disconnectedPlayer && disconnectedPlayer.id === room.hostId;
 
         // 根据身份更新比分（而不是根据color）
@@ -186,9 +193,11 @@ function handlePlayerDisconnect(ws) {
         room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求
 
         if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
+          // 修复：根据对手的实际身份来确定 winner
+          const winner = isHost ? 2 : 1;  // 房主掉线，加入者赢；加入者掉线，房主赢
           send(opponent.ws, {
             type: 'game_over',
-            winner: opponentColor,  // 当前执子的对手获胜
+            winner: winner,
             reason: 'disconnect',
             matchWins: room.matchWins,
             matchEnded: matchEnded
@@ -362,19 +371,22 @@ function handleRejoinRoom(ws, data) {
   // 更新连接
   room.players[playerIndex].ws = ws;
   room.players[playerIndex].disconnectedAt = null;
-  clients.set(ws, { userId: room.players[playerIndex].id, roomCode, color: playerIndex + 1 });
-  
+  // 修复：使用实际的 color 值，而不是 playerIndex+1
+  clients.set(ws, { userId: room.players[playerIndex].id, roomCode, color: room.players[playerIndex].color });
+
   send(ws, {
     type: 'rejoined',
     board: room.board,
     currentPlayer: room.currentPlayer,
     moves: room.moves,
-    players: room.players.map(p => p ? { name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft } : null)
+    players: room.players.map(p => p ? { name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft } : null),
+    playerIndex: playerIndex,  // 添加：告诉前端自己在 players 数组中的位置
+    color: room.players[playerIndex].color  // 添加：告诉前端当前的执子颜色
   });
-  
-  // 通知对手
-  const opponentColor = playerIndex === 0 ? 2 : 1;
-  const opponent = room.players[opponentColor - 1];
+
+  // 修复：通过玩家位置来找到对手，而不是使用 color 值
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = room.players[opponentIndex];
   if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
     send(opponent.ws, { type: 'opponent_reconnected', message: '对手已重连' });
   }
@@ -400,7 +412,13 @@ function handlePlacePiece(ws, data) {
   
   room.board[row][col] = color;
   room.moves.push({ row, col, player: color, time: Date.now() });
-  room.players[color - 1].moves++;
+
+  // 修复：找到当前执子颜色对应的玩家在 players 数组中的实际索引
+  const currentPlayerIndex = room.players.findIndex(p => p && p.color === color);
+  if (currentPlayerIndex !== -1) {
+    room.players[currentPlayerIndex].moves++;
+  }
+
   room.lastActivityAt = Date.now();
   
   const winner = checkWin(room.board, row, col, color, room.boardSize);
@@ -465,15 +483,15 @@ function checkWin(board, row, col, player, size) {
 function handleUndoRequest(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
-  
+
   if (!room || room.status !== 'playing' || room.moves.length === 0) return;
-  
-  const opponentColor = color === 1 ? 2 : 1;
-  const opponent = room.players[opponentColor - 1];
-  
+
+  // 修复：通过 WebSocket 连接对比来找到实际对手
+  const opponent = room.players.find(p => p && p.ws && p.ws !== ws);
+
   if (opponent && opponent.ws) {
     send(opponent.ws, { type: 'undo_request', playerName: room.players[color - 1].name });
   }
@@ -488,10 +506,16 @@ function handleUndoAccept(ws) {
   const room = rooms.get(roomCode);
   
   if (!room || room.status !== 'playing' || room.moves.length === 0) return;
-  
+
   const lastMove = room.moves.pop();
   room.board[lastMove.row][lastMove.col] = 0;
-  room.players[lastMove.player - 1].moves--;
+
+  // 修复：找到上一步落子的玩家在 players 数组中的实际索引
+  const lastPlayerIndex = room.players.findIndex(p => p && p.color === lastMove.player);
+  if (lastPlayerIndex !== -1) {
+    room.players[lastPlayerIndex].moves--;
+  }
+
   room.currentPlayer = lastMove.player;
   room.lastActivityAt = Date.now();
   
@@ -503,14 +527,14 @@ function handleUndoAccept(ws) {
 function handleUndoReject(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
   if (!room) return;
-  
-  const requesterColor = color === 1 ? 2 : 1;
-  const requester = room.players[requesterColor - 1];
-  if (requester && requester.ws) send(requester.ws, { type: 'undo_rejected' });
+
+  // 修复：通过 WebSocket 连接对比来找到实际对手
+  const opponent = room.players.find(p => p && p.ws && p.ws !== ws);
+  if (opponent && opponent.ws) send(opponent.ws, { type: 'undo_rejected' });
 }
 
 // 认输
@@ -526,7 +550,11 @@ function handleSurrender(ws) {
   room.status = 'finished';
   room.finishedAt = Date.now();
   room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求
-  const winner = color === 1 ? 2 : 1;
+
+  // 修复：根据认输玩家的实际身份（房主/加入者）来更新比分，而不是根据 color 值
+  const surrenderingPlayer = room.players.find(p => p && p.color === color);
+  const isHost = surrenderingPlayer && surrenderingPlayer.id === room.hostId;
+  const winner = isHost ? 2 : 1;  // 房主认输，加入者赢；加入者认输，房主赢
   room.matchWins[winner]++;
 
   broadcastToRoom(roomCode, {
@@ -557,16 +585,22 @@ function handlePlayAgain(ws) {
     room.playAgainReady = [false, false];
   }
 
-  // 检查对手是否在线
-  const opponentColor = color === 1 ? 2 : 1;
-  const opponent = room.players[opponentColor - 1];
+  // 修复：通过 WebSocket 连接对比来找到实际对手，而不是使用 color 值
+  const opponent = room.players.find(p => p && p.ws && p.ws !== ws);
   if (!opponent || !opponent.ws) {
     send(ws, { type: 'error', message: '对手已离线' });
     return;
   }
 
+  // 修复：找到当前玩家在 players 数组中的实际索引，而不是使用 color-1
+  const playerIndex = room.players.findIndex(p => p && p.ws === ws);
+  if (playerIndex === -1) {
+    send(ws, { type: 'error', message: '未找到玩家信息' });
+    return;
+  }
+
   // 设置该玩家准备状态
-  room.playAgainReady[color - 1] = true;
+  room.playAgainReady[playerIndex] = true;
 
   // 检查比赛是否结束
   const targetWins = Math.ceil(room.matchMode / 2);
@@ -665,14 +699,15 @@ function handleLeaveRoom(ws) {
 function handleQuickMsg(ws, data) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
   if (!room) return;
-  
-  const opponentColor = color === 1 ? 2 : 1;
-  const opponent = room.players[opponentColor - 1];
-  
+
+  // 修复：通过 WebSocket 连接对比来找到实际对手，而不是使用 color 值作为数组索引
+  // 这样可以确保无论 color 值如何变化（第二局交换先后手后），都能正确发送给对手
+  const opponent = room.players.find(p => p && p.ws && p.ws !== ws);
+
   if (opponent && opponent.ws) {
     send(opponent.ws, { type: 'quick_msg', message: data.message, playerName: room.players[color - 1].name });
   }
