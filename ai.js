@@ -45,12 +45,12 @@ class GomokuAI {
     // 棋型评分
     this.patternScores = {
       FIVE: 10000000,      // 连五
-      LIVE_FOUR: 1000000,  // 活四（提高权重）
-      RUSH_FOUR: 100000,   // 冲四（提高权重）
-      LIVE_THREE: 10000,   // 活三（提高权重）
-      SLEEP_THREE: 1000,   // 眠三（提高权重）
-      LIVE_TWO: 500,       // 活二（提高权重）
-      SLEEP_TWO: 100       // 眠二（提高权重）
+      LIVE_FOUR: 1000000,  // 活四
+      RUSH_FOUR: 300000,   // 冲四（从 100000 提高到 300000，因为冲四也能赢）
+      LIVE_THREE: 15000,   // 活三（从 10000 提高到 15000）
+      SLEEP_THREE: 1000,   // 眠三
+      LIVE_TWO: 500,       // 活二
+      SLEEP_TWO: 100       // 眠二
     };
     
     // 基于难度的防守权重倍数
@@ -707,11 +707,11 @@ class GomokuAI {
   pvs(board, depth, alpha, beta, player, hash) {
     this.nodeCount++;
     this.searchStats.nodes++;  // 记录节点数
-    
-    // 时间检查（每 256 节点）
-    if (this.nodeCount % 256 === 0) {
+
+    // 时间检查（每 64 节点，与 searchRoot 保持一致）
+    if (this.nodeCount % 64 === 0) {
       if (Date.now() - this.startTime > this.timeLimit) {
-        return 0;
+        return alpha;  // 超时返回当前下界，避免影响剪枝
       }
     }
     
@@ -880,19 +880,19 @@ class GomokuAI {
   evaluateMoves(moves, board, player) {
     const opponent = 3 - player;
     let highDefenseMoves = []; // 高防守权重的走法
-    
+
     // 获取动态防守权重（基于局势）
     const dynamicDefenseMultiplier = this.getDynamicDefenseMultiplier(board, player);
-    
+
     for (const move of moves) {
       // 评估如果AI下在这里的收益
       board[move.row][move.col] = player;
-      const attackScore = this.evaluatePoint(board, move.row, move.col, player);
+      const attackScore = this.evaluatePoint(board, move.row, move.col, player, true);
       board[move.row][move.col] = 0;
-      
-      // 评估如果对手下在这里的威胁（防守）
+
+      // 评估如果对手下在这里的威胁（防守），不计算组合棋型
       board[move.row][move.col] = opponent;
-      const defenseScore = this.evaluatePoint(board, move.row, move.col, opponent);
+      const defenseScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
       board[move.row][move.col] = 0;
       
       // 基础分数：进攻 - 防守（防守分数乘以动态权重）
@@ -995,43 +995,46 @@ class GomokuAI {
   // 评估棋盘
   evaluate(board, player) {
     let score = 0;
-    
+
     // 获取动态防守权重（基于局势）
     const dynamicDefenseMultiplier = this.getDynamicDefenseMultiplier(board, player);
-    
+
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
         if (board[i][j] === player) {
-          score += this.evaluatePoint(board, i, j, player);
+          // 评估己方棋子，计算组合棋型
+          score += this.evaluatePoint(board, i, j, player, true);
         } else if (board[i][j] === 3 - player) {
-          // 使用动态防守权重
-          const opponentScore = this.evaluatePoint(board, i, j, 3 - player);
+          // 评估对手棋子，不计算组合棋型（避免重复计算）
+          const opponentScore = this.evaluatePoint(board, i, j, 3 - player, false);
           score -= opponentScore * dynamicDefenseMultiplier;
         }
       }
     }
-    
+
     return score;
   }
   
   // 评估单个点
-  evaluatePoint(board, row, col, player) {
+  evaluatePoint(board, row, col, player, includeCombos = true) {
     let score = 0;
     let patterns = [];
-    
+
     for (const [dx, dy] of this.directions) {
       const result = this.countLine(board, row, col, dx, dy, player);
       const patternScore = this.getPatternScore(result.count, result.open);
       score += patternScore;
       patterns.push({ count: result.count, open: result.open, score: patternScore });
     }
-    
-    // 组合棋型加分
-    score += this.evaluateCombinations(patterns);
-    
+
+    // 组合棋型加分（只在评估己方棋子时计算）
+    if (includeCombos) {
+      score += this.evaluateCombinations(patterns);
+    }
+
     // 加上位置权重
     score += this.positionWeight[row][col];
-    
+
     return score;
   }
   
@@ -1072,16 +1075,16 @@ class GomokuAI {
   countLine(board, row, col, dx, dy, player) {
     let count = 1;
     let open = 0;
-    
+
     // 正向
     for (let i = 1; i < 5; i++) {
       const ni = row + i * dx;
       const nj = col + i * dy;
-      
+
       if (ni < 0 || ni >= this.size || nj < 0 || nj >= this.size) {
         break;
       }
-      
+
       if (board[ni][nj] === player) {
         count++;
       } else if (board[ni][nj] === 0) {
@@ -1091,16 +1094,16 @@ class GomokuAI {
         break;
       }
     }
-    
+
     // 反向
     for (let i = 1; i < 5; i++) {
       const ni = row - i * dx;
       const nj = col - i * dy;
-      
+
       if (ni < 0 || ni >= this.size || nj < 0 || nj >= this.size) {
         break;
       }
-      
+
       if (board[ni][nj] === player) {
         count++;
       } else if (board[ni][nj] === 0) {
@@ -1110,7 +1113,10 @@ class GomokuAI {
         break;
       }
     }
-    
+
+    // 限制 open 最大为 2（一个方向最多只有两端可以开放）
+    open = Math.min(open, 2);
+
     return { count, open };
   }
   
