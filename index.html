@@ -657,6 +657,7 @@
                     <button class="btn btn-warning" id="undoBtn" onclick="requestUndo()">悔棋</button>
                     <button class="btn btn-danger" onclick="surrender()">认输</button>
                     <button class="btn btn-success" id="restartBtn" onclick="playAgain()">再来一局</button>
+                    <button class="btn btn-secondary" onclick="toggleMoveNumbersDisplay()">显示序号</button>
                     <button class="btn btn-primary" onclick="exportGame()">导出棋谱</button>
                     <button class="btn btn-primary" onclick="exitRoom()">退出房间</button>
                 </div>
@@ -916,7 +917,7 @@
                 <div style="margin-bottom: 15px; color: #aaa; font-size: 13px;" id="matchResult"></div>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn btn-success" style="flex:1" onclick="playAgain()">再来一局</button>
-                    <button class="btn btn-primary" style="flex:1" onclick="closeWinModal()">继续查看</button>
+                    <button class="btn btn-primary" style="flex:1" onclick="closeWinModal()">查看棋谱</button>
                 </div>
             </div>
         </div>
@@ -984,7 +985,9 @@
                 aiDifficulty: 'medium',
                 // 定时器管理
                 endGameTimeout: null,
-                aiMoveTimeout: null
+                aiMoveTimeout: null,
+                // 序号显示状态
+                showMoveNumbers: false
             };
 
             // AI 请求计数器（全局）
@@ -1718,6 +1721,7 @@
                 GameState.previewCell = null;
                 GameState.undoRequested = false;
                 GameState.winningLine = [];
+                GameState.showMoveNumbers = false;  // 重置序号显示状态
 
                 // 黑方(1) = config.player1, 白方(2) = config.player2
                 GameState.players[1] = {
@@ -2050,6 +2054,18 @@
                 const pieceSize = GameState.pieceSize || 24;
                 piece.style.width = pieceSize + 'px';
                 piece.style.height = pieceSize + 'px';
+                
+                // 如果序号显示状态为 true，添加序号
+                if (GameState.showMoveNumbers) {
+                    const moveIndex = GameState.moveHistory.findIndex(m => m.row === row && m.col === col);
+                    if (moveIndex !== -1) {
+                        const num = document.createElement('span');
+                        num.className = 'move-number';
+                        num.textContent = moveIndex + 1;
+                        piece.appendChild(num);
+                    }
+                }
+                
                 cell.appendChild(piece);
                 cell.classList.add('has-piece');
             }
@@ -2168,7 +2184,14 @@
                 document.querySelectorAll('.piece.last-move').forEach(p => p.classList.remove('last-move'));
 
                 // 游戏结束后显示棋子序号
+                GameState.showMoveNumbers = true;
                 toggleMoveNumbers(true);
+                
+                // 更新序号按钮文本
+                const btn = document.querySelector('.controls .btn-secondary');
+                if (btn) {
+                    btn.textContent = '隐藏序号';
+                }
 
                 const winnerName = document.getElementById('winnerName');
                 if (winner === 0) {
@@ -2227,33 +2250,27 @@
                 if (GameState.matchEnded) {
                     // 比赛结束（包括单局决胜和多局比赛的最后一局）
                     playAgainBtn.textContent = '再赛一轮';
+                    // 重置比分和局数
+                    const originalOnClick = playAgainBtn.onclick;
                     playAgainBtn.onclick = function() {
-                        // 重置比分和局数
                         GameState.matchWins = { 1: 0, 2: 0 };
                         GameState.currentRound = 1;
                         playAgain();
                     };
-                    closeBtn.textContent = '返回菜单';
+                    closeBtn.textContent = '查看棋谱';
+                    // 只关闭弹窗，玩家可以自行退出房间
                     closeBtn.onclick = function() {
                         closeWinModal();
-                        backToMenu();
                     };
                 } else {
-                    // 比赛进行中，显示"下一局"和"继续查看"
+                    // 比赛进行中，显示"下一局"和"查看棋谱"
                     playAgainBtn.textContent = '下一局';
-                    playAgainBtn.onclick = function() {
-                        playAgain();
-                    };
-                    closeBtn.textContent = '继续查看';
+                    closeBtn.textContent = '查看棋谱';
+                    // 只关闭弹窗
                     closeBtn.onclick = function() {
                         closeWinModal();
                     };
                 }
-            }
-
-            // 关闭 winModal
-            function closeWinModal() {
-                document.getElementById('winModal').style.display = 'none';
             }
 
             function updateUI() {
@@ -2689,6 +2706,24 @@
                         }
                     }
                 });
+            }
+
+            // 切换棋子序号显示状态
+            function toggleMoveNumbersDisplay() {
+                // 切换显示状态
+                GameState.showMoveNumbers = !GameState.showMoveNumbers;
+                const show = GameState.showMoveNumbers;
+                
+                // 更新所有棋子的序号显示
+                toggleMoveNumbers(show);
+                
+                // 更新按钮文本
+                const btn = document.querySelector('.controls .btn-secondary');
+                if (btn) {
+                    btn.textContent = show ? '隐藏序号' : '显示序号';
+                }
+                
+                showToast(show ? '已显示棋子序号' : '已隐藏棋子序号');
             }
 
             // ==================== 对局记录 ====================
