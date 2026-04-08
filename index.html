@@ -654,6 +654,7 @@
                 </div>
 
                 <div class="controls">
+                    <button class="btn btn-success" id="readyBtn" style="display:none;" onclick="sendReady()">准备</button>
                     <button class="btn btn-warning" id="undoBtn" onclick="requestUndo()">悔棋</button>
                     <button class="btn btn-danger" onclick="surrender()">认输</button>
                     <button class="btn btn-success" id="restartBtn" onclick="playAgain()">再来一局</button>
@@ -915,8 +916,9 @@
                 <h2>🎉 游戏结束</h2>
                 <div class="winner-name" id="winnerName">黑方 获胜!</div>
                 <div style="margin-bottom: 15px; color: #aaa; font-size: 13px;" id="matchResult"></div>
+                <div style="margin-bottom: 10px; color: #3498db; font-size: 12px;" id="readyStatus">等待双方准备...</div>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-success" style="flex:1" onclick="playAgain()">再来一局</button>
+                    <button class="btn btn-success" style="flex:1" id="modalReadyBtn">准备</button>
                     <button class="btn btn-primary" style="flex:1" onclick="closeWinModal()">查看棋谱</button>
                 </div>
             </div>
@@ -1105,6 +1107,7 @@
                     case 'undo_accepted': handleUndoAccepted(data); break;
                     case 'undo_rejected': showToast('对手拒绝了悔棋请求'); break;
                     case 'play_again': handlePlayAgain(data); break;
+                    case 'play_again_status': handlePlayAgainStatus(data); break;
                     case 'quick_msg': showToast(`${data.playerName}: ${data.message}`); break;
                     case 'emoji': showEmojiAnimation(data.emoji, data.playerColor); break;
                     case 'rejoined': handleRejoined(data); break;
@@ -1601,6 +1604,7 @@
             function handleRoomCreated(data) {
                 GameState.roomCode = data.roomCode;
                 GameState.myColor = data.color; // 房主执黑
+                GameState.myUserId = data.userId; // 存储用户ID
 
                 document.getElementById('displayRoomCode').textContent = data.roomCode;
 
@@ -1621,6 +1625,7 @@
 
                 GameState.roomCode = data.roomCode;
                 GameState.myColor = data.color; // 加入者执白
+                GameState.myUserId = data.userId; // 存储用户ID
                 GameState.myName = document.getElementById('onlineNickname').value || '玩家';
                 GameState.opponentName = data.opponent.name; // 对手名字
                 GameState.matchMode = data.matchMode || 1;
@@ -2235,6 +2240,20 @@
                 // 更新 winModal 按钮文本
                 updateWinModalButtons();
 
+                // 在线模式：显示准备按钮，隐藏"再来一局"按钮
+                if (GameState.gameMode === 'online') {
+                    const readyBtn = document.getElementById('readyBtn');
+                    const restartBtn = document.getElementById('restartBtn');
+                    if (readyBtn) {
+                        readyBtn.style.display = 'inline-block';
+                        readyBtn.textContent = '准备';
+                        readyBtn.disabled = false;
+                    }
+                    if (restartBtn) {
+                        restartBtn.style.display = 'none';
+                    }
+                }
+
                 document.getElementById('winModal').style.display = 'flex';
             }
 
@@ -2245,32 +2264,31 @@
 
             // 更新 winModal 按钮显示
             function updateWinModalButtons() {
-                const playAgainBtn = document.querySelector('#winModal .btn-success');
+                const modalReadyBtn = document.getElementById('modalReadyBtn');
                 const closeBtn = document.querySelector('#winModal .btn-primary');
+                const readyStatus = document.getElementById('readyStatus');
 
-                if (GameState.matchEnded) {
-                    // 比赛结束（包括单局决胜和多局比赛的最后一局）
-                    playAgainBtn.textContent = '再赛一轮';
-                    // 重置比分和局数
-                    const originalOnClick = playAgainBtn.onclick;
-                    playAgainBtn.onclick = function() {
+                if (!modalReadyBtn || !closeBtn) return;
+
+                // 重置准备按钮状态
+                modalReadyBtn.textContent = '准备';
+                modalReadyBtn.disabled = false;
+                modalReadyBtn.onclick = function() {
+                    if (GameState.matchEnded) {
+                        // 比赛结束：重置比分，然后准备
                         GameState.matchWins = { 1: 0, 2: 0 };
                         GameState.currentRound = 1;
-                        playAgain();
-                    };
-                    closeBtn.textContent = '查看棋谱';
-                    // 只关闭弹窗，玩家可以自行退出房间
-                    closeBtn.onclick = function() {
-                        closeWinModal();
-                    };
-                } else {
-                    // 比赛进行中，显示"下一局"和"查看棋谱"
-                    playAgainBtn.textContent = '下一局';
-                    closeBtn.textContent = '查看棋谱';
-                    // 只关闭弹窗
-                    closeBtn.onclick = function() {
-                        closeWinModal();
-                    };
+                    }
+                    sendReady();
+                };
+
+                closeBtn.textContent = '查看棋谱';
+                closeBtn.onclick = closeWinModal;
+
+                // 重置准备状态显示
+                if (readyStatus) {
+                    readyStatus.textContent = '等待双方准备...';
+                    readyStatus.style.color = '#3498db';
                 }
             }
 
@@ -2299,14 +2317,36 @@
                     }
                 }
 
-                // 在线对战模式：比赛进行中时，置灰下方的"再来一局"按钮
+                // 在线对战模式：游戏进行中时隐藏"再来一局"按钮，显示"准备"按钮
                 const restartBtn = document.getElementById('restartBtn');
-                if (GameState.gameMode === 'online' && GameState.matchMode > 1 && GameState.isPlaying) {
-                    restartBtn.disabled = true;
-                    restartBtn.textContent = '进行中';
+                const readyBtn = document.getElementById('readyBtn');
+                if (GameState.gameMode === 'online') {
+                    if (GameState.isPlaying) {
+                        // 游戏进行中：隐藏准备按钮，显示"再来一局"按钮但禁用
+                        if (readyBtn) readyBtn.style.display = 'none';
+                        if (restartBtn) {
+                            restartBtn.style.display = 'inline-block';
+                            if (GameState.matchMode > 1) {
+                                restartBtn.disabled = true;
+                                restartBtn.textContent = '进行中';
+                            } else {
+                                restartBtn.disabled = true;
+                                restartBtn.textContent = '游戏进行中';
+                            }
+                        }
+                    } else {
+                        // 游戏结束：显示准备按钮，隐藏"再来一局"按钮
+                        if (readyBtn) readyBtn.style.display = 'inline-block';
+                        if (restartBtn) restartBtn.style.display = 'none';
+                    }
                 } else {
-                    restartBtn.disabled = false;
-                    restartBtn.textContent = '再来一局';
+                    // 非在线模式：正常显示"再来一局"按钮
+                    if (restartBtn) {
+                        restartBtn.style.display = 'inline-block';
+                        restartBtn.disabled = false;
+                        restartBtn.textContent = '再来一局';
+                    }
+                    if (readyBtn) readyBtn.style.display = 'none';
                 }
 
                 // 导出棋谱按钮：游戏进行中时置灰
@@ -2316,37 +2356,126 @@
                 });
             }
 
-            // ==================== 再来一局 - 修复版 ====================
+            // ==================== 再来一局 - 双方确认机制 ====================
             function playAgain() {
-                document.getElementById('winModal').style.display = 'none';
-                GameState.currentRound++;
+                // 本地模式和AI模式：直接开始新游戏
+                if (GameState.gameMode !== 'online') {
+                    document.getElementById('winModal').style.display = 'none';
+                    if (GameState.gameMode === 'ai') {
+                        // AI 模式：交换玩家执子颜色
+                        const newPlayerColor = GameState.myColor === 1 ? 2 : 1;
+                        GameState.myColor = newPlayerColor;
+                        GameState.aiColor = newPlayerColor === 1 ? 2 : 1;
+                    } else {
+                        // 本地模式：直接交换颜色
+                        const newMyColor = GameState.myColor === 1 ? 2 : 1;
+                        GameState.myColor = newMyColor;
+                    }
+                    restartGame();
+                }
+                // 在线模式：playAgain函数不再处理，改用sendReady函数
+            }
 
-                if (GameState.gameMode === 'online') {
-                    // 在线模式：通知服务端交换颜色，同时交换玩家名字
-                    const newMyColor = GameState.myColor === 1 ? 2 : 1;
-                    GameState.myColor = newMyColor;
-                    // 交换玩家名字，确保 myName 始终对应我执子的颜色
-                    const tempName = GameState.myName;
-                    GameState.myName = GameState.opponentName;
-                    GameState.opponentName = tempName;
-                    sendToServer({ type: 'play_again', newColor: newMyColor });
-                } else if (GameState.gameMode === 'ai') {
-                    // AI 模式：交换玩家执子颜色
-                    const newPlayerColor = GameState.myColor === 1 ? 2 : 1;
-                    GameState.myColor = newPlayerColor;
-                    GameState.aiColor = newPlayerColor === 1 ? 2 : 1;
-                    restartGame();
+            // 发送准备请求（在线模式）
+            function sendReady() {
+                sendToServer({ type: 'play_again' });
+
+                // 更新弹窗中的按钮
+                const modalReadyBtn = document.getElementById('modalReadyBtn');
+                if (modalReadyBtn) {
+                    modalReadyBtn.textContent = '已准备 ✓';
+                    modalReadyBtn.disabled = true;
+                }
+
+                // 更新棋盘下方的按钮
+                const readyBtn = document.getElementById('readyBtn');
+                if (readyBtn) {
+                    readyBtn.textContent = '已准备 ✓';
+                    readyBtn.disabled = true;
+                }
+            }
+
+            // 处理准备状态更新
+            function handlePlayAgainStatus(data) {
+                const readyStatus = document.getElementById('readyStatus');
+                const modalReadyBtn = document.getElementById('modalReadyBtn');
+                const readyBtn = document.getElementById('readyBtn');
+
+                if (!readyStatus) return;
+
+                const myReady = data.ready[GameState.myColor - 1];
+                const opponentReady = data.ready[GameState.myColor === 1 ? 1 : 0];
+
+                if (myReady && opponentReady) {
+                    readyStatus.textContent = '双方已准备，即将开始...';
+                    readyStatus.style.color = '#2ecc71';
+                } else if (opponentReady) {
+                    readyStatus.textContent = '对手已准备，等你确认';
+                    readyStatus.style.color = '#f39c12';
                 } else {
-                    // 本地模式：直接交换颜色
-                    const newMyColor = GameState.myColor === 1 ? 2 : 1;
-                    GameState.myColor = newMyColor;
-                    restartGame();
+                    readyStatus.textContent = '等待双方准备...';
+                    readyStatus.style.color = '#3498db';
+                }
+
+                // 更新按钮状态
+                if (opponentReady && !myReady) {
+                    if (modalReadyBtn) {
+                        modalReadyBtn.textContent = '准备';
+                        modalReadyBtn.disabled = false;
+                    }
+                    if (readyBtn) {
+                        readyBtn.textContent = '准备';
+                        readyBtn.disabled = false;
+                    }
                 }
             }
 
             function handlePlayAgain(data) {
-                // 服务端确认交换
-                GameState.currentRound++;
+                // 隐藏准备按钮
+                const readyBtn = document.getElementById('readyBtn');
+                const restartBtn = document.getElementById('restartBtn');
+                if (readyBtn) {
+                    readyBtn.style.display = 'none';
+                }
+                if (restartBtn) {
+                    restartBtn.style.display = 'inline-block';
+                }
+
+                // 更新局数和比分（使用服务端返回的值）
+                if (data.currentRound) {
+                    GameState.currentRound = data.currentRound;
+                }
+                if (data.matchWins) {
+                    GameState.matchWins = data.matchWins;
+                }
+
+                // 更新玩家数据
+                if (data.players) {
+                    // 找到我当前的颜色
+                    const myPlayer = data.players.find(p => p && p.id === GameState.myUserId);
+                    if (myPlayer) {
+                        GameState.myColor = myPlayer.color;
+                        // 根据颜色找到对手的名字
+                        const opponent = data.players.find(p => p && p.color !== myPlayer.color);
+                        if (opponent) {
+                            GameState.opponentName = opponent.name;
+                        }
+                    }
+
+                    // 更新玩家信息
+                    data.players.forEach(p => {
+                        if (p) {
+                            GameState.players[p.color] = {
+                                name: p.name,
+                                time: p.time,
+                                moves: p.moves,
+                                undoLeft: p.undoLeft
+                            };
+                        }
+                    });
+                }
+
+                // 重新初始化游戏
                 restartGame();
             }
 

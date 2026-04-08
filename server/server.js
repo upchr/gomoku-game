@@ -476,7 +476,7 @@ function handleSurrender(ws) {
   });
 }
 
-// 再来一局
+// 再来一局（双方确认机制）
 function handlePlayAgain(ws) {
   const client = clients.get(ws);
   if (!client) return;
@@ -485,9 +485,14 @@ function handlePlayAgain(ws) {
   const room = rooms.get(roomCode);
   if (!room) return;
 
-  // 防止重复处理：如果已经有再来一局的请求在处理中，直接返回
-  if (room.playAgainRequested) {
+  if (room.status !== 'finished') {
+    send(ws, { type: 'error', message: '游戏未结束' });
     return;
+  }
+
+  // 初始化准备状态数组（如果不存在）
+  if (!room.playAgainReady) {
+    room.playAgainReady = [false, false];
   }
 
   // 检查对手是否在线
@@ -498,9 +503,23 @@ function handlePlayAgain(ws) {
     return;
   }
 
-  // 设置标志位，防止重复处理
-  room.playAgainRequested = true;
+  // 设置该玩家准备状态
+  room.playAgainReady[color - 1] = true;
 
+  // 通知双方准备状态
+  broadcastToRoom(roomCode, {
+    type: 'play_again_status',
+    ready: room.playAgainReady
+  });
+
+  // 如果双方都准备好了，开始新游戏
+  if (room.playAgainReady[0] && room.playAgainReady[1]) {
+    startNewGame(room);
+  }
+}
+
+// 开始新游戏
+function startNewGame(room) {
   // 重置棋盘
   initBoard(room);
   room.moves = [];
@@ -525,7 +544,7 @@ function handlePlayAgain(ws) {
   room.players[0].color = 1;
   room.players[1].color = 2;
 
-  // 更新 clients 映射（添加空值检查）
+  // 更新 clients 映射
   if (room.players[0] && room.players[0].ws) {
     clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode, color: 1 });
   }
@@ -533,14 +552,23 @@ function handlePlayAgain(ws) {
     clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode, color: 2 });
   }
 
-  broadcastToRoom(roomCode, { type: 'play_again', newColor: color === 1 ? 2 : 1 });
+  // 重置准备状态
+  room.playAgainReady = [false, false];
 
-  // 清除标志位（延迟清除，确保广播完成）
-  setTimeout(() => {
-    if (room) {
-      room.playAgainRequested = false;
-    }
-  }, 1000);
+  // 广播游戏开始
+  broadcastToRoom(roomCode, {
+    type: 'play_again',
+    currentRound: room.currentRound,
+    players: room.players.map(p => p ? {
+      name: p.name,
+      time: p.time,
+      moves: p.moves,
+      undoLeft: p.undoLeft,
+      color: p.color,
+      id: p.id
+    } : null),
+    matchWins: room.matchWins
+  });
 }
 
 // 离开房间
