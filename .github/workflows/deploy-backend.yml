@@ -12,13 +12,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Trigger Railway deployment
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.GOMOKU_RAILWAY_SERVICE_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ secrets.GOMOKU_RAILWAY_ENVIRONMENT_ID }}
-          RAILWAY_WORKSPACE_ID: ${{ secrets.RAILWAY_WORKSPACE_ID }}
-          COMMIT_SHA: ${{ github.sha }}
         run: |
+          RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
+          RAILWAY_SERVICE_ID="${{ secrets.GOMOKU_RAILWAY_SERVICE_ID }}"
+          RAILWAY_ENVIRONMENT_ID="${{ secrets.GOMOKU_RAILWAY_ENVIRONMENT_ID }}"
+          RAILWAY_WORKSPACE_ID="${{ secrets.RAILWAY_WORKSPACE_ID }}"
+          COMMIT_SHA="${{ github.sha }}"
+          
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
             -H "x-railway-workspace-id: ${RAILWAY_WORKSPACE_ID}" \
@@ -39,11 +39,11 @@ jobs:
           echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
 
       - name: Wait for deployment
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_WORKSPACE_ID: ${{ secrets.RAILWAY_WORKSPACE_ID }}
-          DEPLOYMENT_ID: ${{ env.DEPLOYMENT_ID }}
         run: |
+          RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
+          RAILWAY_WORKSPACE_ID="${{ secrets.RAILWAY_WORKSPACE_ID }}"
+          DEPLOYMENT_ID="${{ env.DEPLOYMENT_ID }}"
+          
           for i in {1..120}; do
             RESPONSE=$(curl -s -X POST \
               -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
