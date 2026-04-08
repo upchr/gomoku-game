@@ -1242,6 +1242,7 @@
 
             function closeWinModal() {
                 document.getElementById('winModal').style.display = 'none';
+                updateUI();
             }
 
             // ==================== Toast 消息 - 改进版 ====================
@@ -2054,7 +2055,7 @@
                 const pieceSize = GameState.pieceSize || 24;
                 piece.style.width = pieceSize + 'px';
                 piece.style.height = pieceSize + 'px';
-                
+
                 // 如果序号显示状态为 true，添加序号
                 if (GameState.showMoveNumbers) {
                     const moveIndex = GameState.moveHistory.findIndex(m => m.row === row && m.col === col);
@@ -2065,7 +2066,7 @@
                         piece.appendChild(num);
                     }
                 }
-                
+
                 cell.appendChild(piece);
                 cell.classList.add('has-piece');
             }
@@ -2186,7 +2187,7 @@
                 // 游戏结束后显示棋子序号
                 GameState.showMoveNumbers = true;
                 toggleMoveNumbers(true);
-                
+
                 // 更新序号按钮文本
                 const btn = document.querySelector('.controls .btn-secondary');
                 if (btn) {
@@ -2581,7 +2582,7 @@
                     showToast('游戏结束后才能导出棋谱');
                     return;
                 }
-                
+
                 if (GameState.moveHistory.length === 0) {
                     showToast('没有棋谱可导出');
                     return;
@@ -2713,16 +2714,16 @@
                 // 切换显示状态
                 GameState.showMoveNumbers = !GameState.showMoveNumbers;
                 const show = GameState.showMoveNumbers;
-                
+
                 // 更新所有棋子的序号显示
                 toggleMoveNumbers(show);
-                
+
                 // 更新按钮文本
                 const btn = document.querySelector('.controls .btn-secondary');
                 if (btn) {
                     btn.textContent = show ? '隐藏序号' : '显示序号';
                 }
-                
+
                 showToast(show ? '已显示棋子序号' : '已隐藏棋子序号');
             }
 
