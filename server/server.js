@@ -546,17 +546,17 @@ function startNewGame(room) {
 
   // 更新 clients 映射
   if (room.players[0] && room.players[0].ws) {
-    clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode, color: 1 });
+    clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode: room.code, color: 1 });
   }
   if (room.players[1] && room.players[1].ws) {
-    clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode, color: 2 });
+    clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode: room.code, color: 2 });
   }
 
   // 重置准备状态
   room.playAgainReady = [false, false];
 
   // 广播游戏开始
-  broadcastToRoom(roomCode, {
+  broadcastToRoom(room.code, {
     type: 'play_again',
     currentRound: room.currentRound,
     players: room.players.map(p => p ? {
