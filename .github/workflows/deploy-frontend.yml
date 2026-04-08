@@ -27,30 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        working-directory: ./frontend
-        uses: actions/setup-node@v4
+      # 直接部署静态文件到 GitHub Pages
+      - uses: actions/upload-pages-artifact@v3
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-        # 或者使用 working-directory，但需要确保缓存生效
-
-      - name: Build
-        run: |
-          cd frontend
-          npm run build
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./frontend/dist
+          path: .
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
