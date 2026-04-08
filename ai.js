@@ -379,9 +379,9 @@ class GomokuAI {
       // 优先检查对手的威胁（活四、冲四、活三）
       const candidates = this.getCandidateMoves(board);
       for (const move of candidates) {
-        // 检查对手在这个位置的威胁
+        // 检查对手在这个位置的威胁（不计算组合棋型）
         board[move.row][move.col] = opponent;
-        const opponentScore = this.evaluatePoint(board, move.row, move.col, opponent);
+        const opponentScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
         board[move.row][move.col] = 0;
         
         // 如果对手有活四或冲四，必须防守
@@ -776,7 +776,8 @@ class GomokuAI {
       for (let j = 0; j < this.size; j++) {
         if (board[i][j] === 0) {
           board[i][j] = player;
-          const score = this.evaluatePoint(board, i, j, player);
+          // 不计算组合棋型，保持与其他函数一致
+          const score = this.evaluatePoint(board, i, j, player, false);
           board[i][j] = 0;
 
           if (score >= this.patternScores.LIVE_THREE) {

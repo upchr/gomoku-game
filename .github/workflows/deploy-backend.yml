@@ -5,11 +5,6 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
-env:
-  RAILWAY_SERVICE_ID: "${{ secrets.GOMOKU_RAILWAY_SERVICE_ID }}"
-  RAILWAY_ENVIRONMENT_ID: "${{ secrets.GOMOKU_RAILWAY_ENVIRONMENT_ID }}"
-  RAILWAY_TOKEN: "${{ secrets.RAILWAY_TOKEN }}"
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,13 +12,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Trigger Railway deployment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.GOMOKU_RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.GOMOKU_RAILWAY_ENVIRONMENT_ID }}
+          RAILWAY_WORKSPACE_ID: ${{ secrets.RAILWAY_WORKSPACE_ID }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           RESPONSE=$(curl -s -X POST \
-            -H "Authorization: Bearer ${{ env.RAILWAY_TOKEN }}" \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "x-railway-workspace-id: ${RAILWAY_WORKSPACE_ID}" \
             -H "Content-Type: application/json" \
-            -d '{
-              "query": "mutation { serviceInstanceDeployV2(serviceId: \"${{ env.RAILWAY_SERVICE_ID }}\", environmentId: \"${{ env.RAILWAY_ENVIRONMENT_ID }}\", commitSha: \"${{ github.sha }}\") }"
-            }' \
+            -d "{\"query\":\"mutation { serviceInstanceDeployV2(serviceId: \\\"${RAILWAY_SERVICE_ID}\\\", environmentId: \\\"${RAILWAY_ENVIRONMENT_ID}\\\", commitSha: \\\"${COMMIT_SHA}\\\") }\"}" \
             https://backboard.railway.com/graphql/v2)
           
           echo "Response: $RESPONSE"
@@ -39,16 +39,17 @@ jobs:
           echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
 
       - name: Wait for deployment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_WORKSPACE_ID: ${{ secrets.RAILWAY_WORKSPACE_ID }}
+          DEPLOYMENT_ID: ${{ env.DEPLOYMENT_ID }}
         run: |
-          DEPLOYMENT_ID=${{ env.DEPLOYMENT_ID }}
-          
           for i in {1..120}; do
             RESPONSE=$(curl -s -X POST \
-              -H "Authorization: Bearer ${{ env.RAILWAY_TOKEN }}" \
+              -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+              -H "x-railway-workspace-id: ${RAILWAY_WORKSPACE_ID}" \
               -H "Content-Type: application/json" \
-              -d '{
-                "query": "query { deployment(id: \"'$DEPLOYMENT_ID'\") { status } }"
-              }' \
+              -d "{\"query\":\"query { deployment(id: \\\"${DEPLOYMENT_ID}\\\") { status } }\"}" \
               https://backboard.railway.com/graphql/v2)
           
             STATUS=$(echo "$RESPONSE" | jq -r '.data.deployment.status // empty')
