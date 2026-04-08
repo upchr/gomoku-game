@@ -356,23 +356,16 @@ function handlePlacePiece(ws, data) {
   const winner = checkWin(room.board, row, col, color, room.boardSize);
 
   if (winner) {
-    // 根据原始玩家位置更新比分（color 1对应room.players[0]，color 2对应room.players[1]）
-    // 但由于会交换颜色，我们需要根据玩家在数组中的原始位置来更新比分
-    // 第一局：players[0]是color 1，players[1]是color 2
-    // 第二局：交换后，players[0]是原来的players[1]，players[1]是原来的players[0]
-    // 所以我们需要根据玩家的userId来判断谁是原始的玩家1和玩家2
-    const winnerIndex = color - 1; // 0 或 1
-    const winnerPlayer = room.players[winnerIndex];
-
-    // 使用玩家在数组中的位置来更新比分（这样交换后比分会跟着玩家走）
-    if (winnerPlayer) {
-      // 找到这个玩家在原始数组中的位置（通过检查他是房主还是加入者）
-      // 房主的id是room.hostId
-      const isHost = winnerPlayer.id === room.hostId;
-      if (isHost) {
-        room.matchWins[1]++; // 房主（原始玩家1）得分
+    // 更新比分：根据玩家的实际身份（房主/加入者）来更新
+    // room.players[0]是房主，room.players[1]是加入者
+    // color是当前的执子颜色，需要找到这个color对应的玩家
+    const winningPlayer = room.players.find(p => p && p.color === color);
+    if (winningPlayer) {
+      // 判断是房主还是加入者
+      if (winningPlayer.id === room.hostId) {
+        room.matchWins[1]++; // 房主得分
       } else {
-        room.matchWins[2]++; // 加入者（原始玩家2）得分
+        room.matchWins[2]++; // 加入者得分
       }
     }
 
@@ -569,19 +562,17 @@ function startNewGame(room) {
     }
   });
 
-  // 交换颜色（通过交换玩家数组位置）
-  const temp = room.players[0];
-  room.players[0] = room.players[1];
-  room.players[1] = temp;
-  room.players[0].color = 1;
-  room.players[1].color = 2;
+  // 交换颜色（只交换color属性，不交换玩家数组位置）
+  const tempColor = room.players[0].color;
+  room.players[0].color = room.players[1].color;
+  room.players[1].color = tempColor;
 
-  // 更新 clients 映射
+  // 更新 clients 映射（color已经改变）
   if (room.players[0] && room.players[0].ws) {
-    clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode: room.code, color: 1 });
+    clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode: room.code, color: room.players[0].color });
   }
   if (room.players[1] && room.players[1].ws) {
-    clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode: room.code, color: 2 });
+    clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode: room.code, color: room.players[1].color });
   }
 
   // 重置准备状态
