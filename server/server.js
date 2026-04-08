@@ -54,24 +54,50 @@ function generateUserId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
-// 清理过期房间（只清理空闲房间或已结束的房间）
+// 清理过期房间
 function cleanupExpiredRooms() {
   const now = Date.now();
   for (const [code, room] of rooms) {
-    // 只清理 waiting 状态超过 30 分钟的房间，或 finished 状态超过 5 分钟的房间
-    const isWaiting = room.status === 'waiting';
-    const isFinished = room.status === 'finished';
-    const expired = now - room.createdAt > ROOM_TIMEOUT;
-    const finishedExpired = isFinished && (now - room.finishedAt > 5 * 60 * 1000);
-    
-    if ((isWaiting && expired) || finishedExpired) {
+    let shouldDelete = false;
+    let reason = '';
+
+    // 1. waiting 状态超过 30 分钟
+    if (room.status === 'waiting' && now - room.createdAt > ROOM_TIMEOUT) {
+      shouldDelete = true;
+      reason = '等待超时';
+    }
+    // 2. finished 状态超过 5 分钟
+    else if (room.status === 'finished' && now - room.finishedAt > 5 * 60 * 1000) {
+      shouldDelete = true;
+      reason = '游戏结束超时';
+    }
+    // 3. playing 状态，但所有玩家都掉线超过 5 分钟
+    else if (room.status === 'playing') {
+      const allDisconnected = room.players.every(p =>
+        !p.ws || p.ws.readyState !== WebSocket.OPEN
+      );
+      const allDisconnectedLong = room.players.every(p =>
+        p.disconnectedAt && now - p.disconnectedAt > 5 * 60 * 1000
+      );
+
+      if (allDisconnected && allDisconnectedLong) {
+        shouldDelete = true;
+        reason = '所有玩家掉线超时';
+      }
+    }
+
+    if (shouldDelete) {
+      // 通知所有在线玩家
       room.players.forEach(player => {
         if (player && player.ws && player.ws.readyState === WebSocket.OPEN) {
-          send(player.ws, { type: 'room_expired', message: '房间已过期' });
+          send(player.ws, {
+            type: 'room_expired',
+            message: `房间已过期（${reason}）`
+          });
         }
       });
       rooms.delete(code);
-      console.log(`房间 ${code} 已清理 (${room.status})`);
+      console.log(`房间 ${code} 已清理 (${reason})`);
     }
   }
 }
@@ -128,24 +154,48 @@ function handlePlayerDisconnect(ws) {
     
     // 设置重连超时
     room.reconnectTimer = setTimeout(() => {
-      // 超时未重连，判定掉线方输
+      // 超时未重连，判定掉线方输掉当前局
       if (room.players[color - 1] && !room.players[color - 1].ws) {
-        room.status = 'finished';
-        room.finishedAt = Date.now();
+        // 找到掉线方的实际身份（房主还是加入者）
+        const disconnectedPlayer = room.players[color - 1];
+        const isHost = disconnectedPlayer && disconnectedPlayer.id === room.hostId;
+
+        // 根据身份更新比分（而不是根据color）
+        if (isHost) {
+          // 房主掉线，加入者得分
+          room.matchWins[2]++;
+        } else {
+          // 加入者掉线，房主得分
+          room.matchWins[1]++;
+        }
+
+        // 检查比赛是否结束
+        const targetWins = Math.ceil(room.matchMode / 2);
+        const matchEnded = room.matchWins[1] >= targetWins || room.matchWins[2] >= targetWins;
+
+        if (matchEnded) {
+          // 比赛结束
+          room.status = 'finished';
+          room.finishedAt = Date.now();
+        } else {
+          // 比赛未结束，当前局结束，可以继续下一局
+          room.status = 'finished';
+          room.finishedAt = Date.now();
+        }
+
         room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求
-        const winner = opponentColor;
-        room.matchWins[winner]++;
 
         if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
           send(opponent.ws, {
             type: 'game_over',
-            winner,
+            winner: opponentColor,  // 当前执子的对手获胜
             reason: 'disconnect',
-            matchWins: room.matchWins
+            matchWins: room.matchWins,
+            matchEnded: matchEnded
           });
         }
-        
-        console.log(`玩家 ${player?.name || color} 掉线超时，房间 ${roomCode} 结束`);
+
+        console.log(`玩家 ${disconnectedPlayer?.name || color} 掉线超时，房间 ${roomCode} 结束，比分 ${room.matchWins[1]}:${room.matchWins[2]}`);
       }
     }, RECONNECT_TIMEOUT);
   }

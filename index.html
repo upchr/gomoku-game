@@ -2150,6 +2150,10 @@
             function handleGameOver(data) {
                 // 如果是超时/掉线/认输导致的结束，直接显示结果
                 if (data.reason === 'timeout' || data.reason === 'disconnect' || data.reason === 'surrender') {
+                    // 更新比分（使用服务器返回的比分）
+                    if (data.matchWins) {
+                        GameState.matchWins = data.matchWins;
+                    }
                     endGame(data.winner);
                     return;
                 }
