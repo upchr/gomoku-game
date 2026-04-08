@@ -132,9 +132,10 @@ function handlePlayerDisconnect(ws) {
       if (room.players[color - 1] && !room.players[color - 1].ws) {
         room.status = 'finished';
         room.finishedAt = Date.now();
+        room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求
         const winner = opponentColor;
         room.matchWins[winner]++;
-        
+
         if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
           send(opponent.ws, {
             type: 'game_over',
@@ -192,7 +193,8 @@ function handleCreateRoom(ws, data) {
     currentPlayer: 1,
     matchWins: { 1: 0, 2: 0 },
     currentRound: 1,
-    reconnectTimer: null
+    reconnectTimer: null,
+    playAgainRequested: false  // 防止重复处理"再来一局"请求
   };
   
   initBoard(room);
@@ -357,7 +359,8 @@ function handlePlacePiece(ws, data) {
     room.matchWins[color]++;
     room.status = 'finished';
     room.finishedAt = Date.now();
-    
+    room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求
+
     broadcastToRoom(roomCode, {
       type: 'game_over',
       winner: color,
@@ -457,12 +460,13 @@ function handleSurrender(ws) {
   const room = rooms.get(roomCode);
   
   if (!room || room.status !== 'playing') return;
-  
+
   room.status = 'finished';
   room.finishedAt = Date.now();
+  room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求
   const winner = color === 1 ? 2 : 1;
   room.matchWins[winner]++;
-  
+
   broadcastToRoom(roomCode, {
     type: 'game_over',
     winner,
@@ -476,11 +480,16 @@ function handleSurrender(ws) {
 function handlePlayAgain(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
   if (!room) return;
-  
+
+  // 防止重复处理：如果已经有再来一局的请求在处理中，直接返回
+  if (room.playAgainRequested) {
+    return;
+  }
+
   // 检查对手是否在线
   const opponentColor = color === 1 ? 2 : 1;
   const opponent = room.players[opponentColor - 1];
@@ -488,7 +497,10 @@ function handlePlayAgain(ws) {
     send(ws, { type: 'error', message: '对手已离线' });
     return;
   }
-  
+
+  // 设置标志位，防止重复处理
+  room.playAgainRequested = true;
+
   // 重置棋盘
   initBoard(room);
   room.moves = [];
@@ -497,7 +509,7 @@ function handlePlayAgain(ws) {
   room.currentRound++;
   room.lastActivityAt = Date.now();
   room.finishedAt = null;
-  
+
   // 重置玩家
   room.players.forEach(p => {
     if (p) {
@@ -505,14 +517,14 @@ function handlePlayAgain(ws) {
       p.moves = 0;
     }
   });
-  
+
   // 交换颜色（通过交换玩家数组位置）
   const temp = room.players[0];
   room.players[0] = room.players[1];
   room.players[1] = temp;
   room.players[0].color = 1;
   room.players[1].color = 2;
-  
+
   // 更新 clients 映射（添加空值检查）
   if (room.players[0] && room.players[0].ws) {
     clients.set(room.players[0].ws, { userId: room.players[0].id, roomCode, color: 1 });
@@ -520,8 +532,15 @@ function handlePlayAgain(ws) {
   if (room.players[1] && room.players[1].ws) {
     clients.set(room.players[1].ws, { userId: room.players[1].id, roomCode, color: 2 });
   }
-  
+
   broadcastToRoom(roomCode, { type: 'play_again', newColor: color === 1 ? 2 : 1 });
+
+  // 清除标志位（延迟清除，确保广播完成）
+  setTimeout(() => {
+    if (room) {
+      room.playAgainRequested = false;
+    }
+  }, 1000);
 }
 
 // 离开房间

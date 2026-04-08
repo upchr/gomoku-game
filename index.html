@@ -2168,12 +2168,15 @@
                 const targetWins = Math.ceil(GameState.matchMode / 2);
                 let resultText = `本局: ${GameState.moveHistory.length} 步`;
 
+                // 标记比赛是否结束
+                GameState.matchEnded = false;
+
                 if (GameState.matchMode > 1) {
                     if (GameState.matchWins[1] >= targetWins || GameState.matchWins[2] >= targetWins) {
                         const matchWinner = GameState.matchWins[1] >= targetWins ? 1 : 2;
                         resultText += ` | ${GameState.players[matchWinner].name} 赢得比赛!`;
-                        GameState.matchWins = { 1: 0, 2: 0 };
-                        GameState.currentRound = 1;
+                        GameState.matchEnded = true;  // 比赛结束
+                        // 不在这里重置比分，等到玩家确认后再重置
                     } else {
                         resultText += ` | 比分 ${GameState.matchWins[1]}:${GameState.matchWins[2]}`;
                     }
@@ -2187,12 +2190,52 @@
                     updateMatchInfo();
                 }
 
+                // 更新 winModal 按钮文本
+                updateWinModalButtons();
+
                 document.getElementById('winModal').style.display = 'flex';
             }
 
             function handleOpponentLeft(data) {
                 alert('对手已离开房间');
                 backToMenu();
+            }
+
+            // 更新 winModal 按钮显示
+            function updateWinModalButtons() {
+                const playAgainBtn = document.querySelector('#winModal .btn-success');
+                const closeBtn = document.querySelector('#winModal .btn-primary');
+
+                if (GameState.matchEnded && GameState.matchMode > 1) {
+                    // 比赛结束，显示"再赛一轮"选项
+                    playAgainBtn.textContent = '再赛一轮';
+                    playAgainBtn.onclick = function() {
+                        // 重置比分和局数
+                        GameState.matchWins = { 1: 0, 2: 0 };
+                        GameState.currentRound = 1;
+                        playAgain();
+                    };
+                    closeBtn.textContent = '返回菜单';
+                    closeBtn.onclick = function() {
+                        closeWinModal();
+                        backToMenu();
+                    };
+                } else {
+                    // 比赛未结束，显示正常的"再来一局"和"继续查看"
+                    playAgainBtn.textContent = '再来一局';
+                    playAgainBtn.onclick = function() {
+                        playAgain();
+                    };
+                    closeBtn.textContent = '继续查看';
+                    closeBtn.onclick = function() {
+                        closeWinModal();
+                    };
+                }
+            }
+
+            // 关闭 winModal
+            function closeWinModal() {
+                document.getElementById('winModal').style.display = 'none';
             }
 
             function updateUI() {
@@ -2227,9 +2270,13 @@
                 GameState.currentRound++;
 
                 if (GameState.gameMode === 'online') {
-                    // 在线模式：通知服务端交换颜色
+                    // 在线模式：通知服务端交换颜色，同时交换玩家名字
                     const newMyColor = GameState.myColor === 1 ? 2 : 1;
                     GameState.myColor = newMyColor;
+                    // 交换玩家名字，确保 myName 始终对应我执子的颜色
+                    const tempName = GameState.myName;
+                    GameState.myName = GameState.opponentName;
+                    GameState.opponentName = tempName;
                     sendToServer({ type: 'play_again', newColor: newMyColor });
                 } else if (GameState.gameMode === 'ai') {
                     // AI 模式：交换玩家执子颜色
