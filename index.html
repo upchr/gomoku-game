@@ -2183,7 +2183,11 @@
                 // 标记比赛是否结束
                 GameState.matchEnded = false;
 
-                if (GameState.matchMode > 1) {
+                // 单局决胜模式：游戏结束即比赛结束
+                if (GameState.matchMode === 1) {
+                    GameState.matchEnded = true;
+                } else if (GameState.matchMode > 1) {
+                    // 多局比赛模式：检查是否达到目标胜场
                     if (GameState.matchWins[1] >= targetWins || GameState.matchWins[2] >= targetWins) {
                         const matchWinner = GameState.matchWins[1] >= targetWins ? 1 : 2;
                         resultText += ` | ${GameState.players[matchWinner].name} 赢得比赛!`;
@@ -2218,8 +2222,8 @@
                 const playAgainBtn = document.querySelector('#winModal .btn-success');
                 const closeBtn = document.querySelector('#winModal .btn-primary');
 
-                if (GameState.matchEnded && GameState.matchMode > 1) {
-                    // 比赛结束，显示"再赛一轮"选项
+                if (GameState.matchEnded) {
+                    // 比赛结束（包括单局决胜和多局比赛的最后一局）
                     playAgainBtn.textContent = '再赛一轮';
                     playAgainBtn.onclick = function() {
                         // 重置比分和局数
@@ -2233,8 +2237,8 @@
                         backToMenu();
                     };
                 } else {
-                    // 比赛未结束，显示正常的"再来一局"和"继续查看"
-                    playAgainBtn.textContent = '再来一局';
+                    // 比赛进行中，显示"下一局"和"继续查看"
+                    playAgainBtn.textContent = '下一局';
                     playAgainBtn.onclick = function() {
                         playAgain();
                     };
@@ -2274,6 +2278,22 @@
                         oppNameElement.textContent = GameState.opponentName;
                     }
                 }
+
+                // 在线对战模式：比赛进行中时，置灰下方的"再来一局"按钮
+                const restartBtn = document.getElementById('restartBtn');
+                if (GameState.gameMode === 'online' && GameState.matchMode > 1 && GameState.isPlaying) {
+                    restartBtn.disabled = true;
+                    restartBtn.textContent = '进行中';
+                } else {
+                    restartBtn.disabled = false;
+                    restartBtn.textContent = '再来一局';
+                }
+
+                // 导出棋谱按钮：游戏进行中时置灰
+                const exportBtns = document.querySelectorAll('button[onclick="exportGame()"]');
+                exportBtns.forEach(btn => {
+                    btn.disabled = GameState.isPlaying;
+                });
             }
 
             // ==================== 再来一局 - 修复版 ====================
