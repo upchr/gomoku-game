@@ -19,7 +19,7 @@ cd server
 # 部署
 railway up
 ```
-
+ 
 ### 方式二：从 GitHub 部署
 
 1. 打开 Railway Dashboard (https://railway.com)
