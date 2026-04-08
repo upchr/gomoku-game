@@ -1,5 +1,4 @@
 name: Deploy Backend to Railway
-
 on:
   push:
     tags:
@@ -9,48 +8,37 @@ on:
 env:
   RAILWAY_SERVICE_ID: "${{ secrets.GOMOKU_RAILWAY_SERVICE_ID }}"
   RAILWAY_ENVIRONMENT_ID: "${{ secrets.GOMOKU_RAILWAY_ENVIRONMENT_ID }}"
+  RAILWAY_TOKEN: "${{ secrets.RAILWAY_TOKEN }}"
   TAG: ${{ github.ref_name }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      # 步骤1：更新 Railway 服务的代码源
-      - name: Update Railway service source
-        run: |
-          curl -s -X POST \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceUpdate(serviceId: \"'${{ env.RAILWAY_SERVICE_ID }}'\", environmentId: \"'${{ env.RAILWAY_ENVIRONMENT_ID }}'\", input: {source: {repo: \"upchr/gomoku-game\"}}) }"}' \
-            https://backboard.railway.com/graphql/v2
-
-      # 步骤2：触发 Railway 部署
       - name: Trigger Railway deployment
         run: |
           DEPLOYMENT_ID=$(curl -s -X POST \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Authorization: Bearer ${{ env.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceDeployV2(serviceId: \"'${{ env.RAILWAY_SERVICE_ID }}'\", environmentId: \"'${{ env.RAILWAY_ENVIRONMENT_ID }}'\", commitSha: \"${{ github.sha }}\") }"}' \
-            https://backboard.railway.com/graphql/v2 | jq -r '.data.serviceInstanceDeployV2')
+            -d '{"query":"mutation { serviceInstanceDeployV2(serviceId: \"'${{ env.RAILWAY_SERVICE_ID }}'\", environmentId: \"'${{ env.RAILWAY_ENVIRONMENT_ID }}'\", commitSha: \"${{ github.sha }}\") { id } }"}' \
+            https://backboard.railway.com/graphql/v2 | jq -r '.data.serviceInstanceDeployV2.id')
           
           echo "Deployment ID: $DEPLOYMENT_ID"
-          echo "Commit SHA: ${{ github.sha }}"
           echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
 
       - name: Wait for deployment
         run: |
           for i in {1..60}; do
             STATUS=$(curl -s \
-              -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+              -H "Authorization: Bearer ${{ env.RAILWAY_TOKEN }}" \
               -H "Content-Type: application/json" \
               -d '{"query":"query { deployment(id: \"'${DEPLOYMENT_ID}'\") { status } }"}' \
               https://backboard.railway.com/graphql/v2 | jq -r '.data.deployment.status')
-            
+          
             echo "Deployment status: $STATUS"
-            
+          
             if [ "$STATUS" = "SUCCESS" ]; then
               echo "✅ Deployment succeeded!"
               exit 0
@@ -58,7 +46,7 @@ jobs:
               echo "❌ Deployment failed!"
               exit 1
             fi
-            
+          
             sleep 10
           done
           

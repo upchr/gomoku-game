@@ -414,11 +414,6 @@ class GomokuAI {
       return null;
     }
 
-    // 只在棋子较少时使用定式（前4步）
-    if (totalPieces > 4) {
-      return null;
-    }
-
     // 尝试匹配各种定式
     const patterns = ['huayue', 'puyue', 'yunyue', 'yuyue', 'songyue', 'qiuyue', 'xinyue', 'canyue', 'jinxing'];
 
@@ -582,7 +577,7 @@ class GomokuAI {
     
     if (complexity < 0.1) {
       // 开局阶段（棋子少于10%）：标准时间
-      adjustedTimeLimit = adjustedTimeLimit;
+      // 保持 adjustedTimeLimit 不变
     } else if (complexity < 0.25) {
       // 早期（10%-25%）：增加30%时间
       adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.3);
@@ -657,7 +652,21 @@ class GomokuAI {
     
     // 迭代加深搜索
     for (let depth = 2; depth <= this.depthConfig.max; depth += 2) {
-      if (Date.now() - this.startTime > this.timeLimit * 0.7) {
+      // 时间检查：确保有足够时间完成当前深度的搜索
+      // 预估剩余时间：当前已用时间 + 预估当前深度所需时间
+      const elapsedTime = Date.now() - this.startTime;
+      const remainingTime = this.timeLimit - elapsedTime;
+      
+      // 如果剩余时间不足，停止迭代
+      // 使用保守估计：剩余时间需要大于当前时间限制的20%
+      if (remainingTime < this.timeLimit * 0.2) {
+        console.log('AI: 时间不足，停止迭代加深', { depth, remainingTime });
+        break;
+      }
+      
+      // 如果已用时间超过80%，停止迭代
+      if (elapsedTime > this.timeLimit * 0.8) {
+        console.log('AI: 时间已用80%，停止迭代加深', { depth, elapsedTime });
         break;
       }
       
@@ -887,8 +896,9 @@ class GomokuAI {
     const beta = Infinity;
     
     for (let i = 0; i < moves.length; i++) {
-      // 时间检查（提高检查频率，从 256 改为 64）
-      if (this.nodeCount % 64 === 0 && Date.now() - this.startTime > this.timeLimit) {
+      // 时间检查：直接检查时间，确保及时中断
+      if (Date.now() - this.startTime > this.timeLimit) {
+        console.log('AI: searchRoot 时间超时', { i, movesLength: moves.length });
         break;
       }
       
@@ -932,8 +942,8 @@ class GomokuAI {
     this.nodeCount++;
     this.searchStats.nodes++;  // 记录节点数
 
-    // 时间检查（每 64 节点，与 searchRoot 保持一致）
-    if (this.nodeCount % 64 === 0) {
+    // 时间检查（每 16 节点，提高检查频率确保及时中断）
+    if (this.nodeCount % 16 === 0) {
       if (Date.now() - this.startTime > this.timeLimit) {
         return alpha;  // 超时返回当前下界，避免影响剪枝
       }
@@ -954,7 +964,12 @@ class GomokuAI {
     // 置换表查询
     const hashStr = hash.toString();
     const cached = this.transpositionTable.get(hashStr);
-    if (cached && cached.depth >= depth && cached.age === this.tableAge) {
+    
+    // 使用缓存的棋子数，避免重复计算
+    const currentPieceCount = this.searchStats.pieceCount || this.countPieces(board);
+    
+    // 验证哈希冲突：检查深度、年龄和棋子数
+    if (cached && cached.depth >= depth && cached.age === this.tableAge && cached.pieceCount === currentPieceCount) {
       this.searchStats.cacheHits++;  // 记录缓存命中
       if (cached.flag === 'exact') {
         return cached.score;
@@ -1025,11 +1040,15 @@ class GomokuAI {
     }
     
     // 存入置换表（LRU 缓存会自动管理大小）
+    // 使用缓存的棋子数，避免重复计算
+    const currentPieceCount = this.searchStats.pieceCount || this.countPieces(board);
+    
     this.transpositionTable.set(hashStr, {
       score: bestScore,
       depth: depth,
       flag: flag,
-      age: this.tableAge
+      age: this.tableAge,
+      pieceCount: currentPieceCount  // 添加棋子数用于验证哈希冲突
     });
     
     return bestScore;
@@ -1304,7 +1323,7 @@ class GomokuAI {
     let jumpFour = 0;
 
     for (const [dx, dy] of this.directions) {
-      // 获取这个方向上以 (row, col) 为中心的所有点
+      // 获取这个方向上以 (row, col) 为中心的所有点（9个点）
       const line = [];
       for (let i = -4; i <= 4; i++) {
         const ni = row + i * dx;
@@ -1314,60 +1333,60 @@ class GomokuAI {
         }
       }
 
-      const len = line.length;
-      const centerIndex = 4; // 中心点索引
-
-      // 只检测以 (row, col) 为起点的跳棋型
-      // 跳三：●○●○●（两个棋子，中间有一个空位）
-      // 跳四：●○●○●○（三个棋子，中间有多个空位）
+      const centerIndex = 4; // 中心点索引（当前落子位置）
       
-      for (let step = 1; step <= 3; step++) {
-        const targetIndex = centerIndex + step;
-        if (targetIndex >= len) break;
+      // 检测跳棋型：在一条线上检测是否有连续的棋子中间有空位
+      // 跳三模式：●○●○●（两个棋子，中间一个空位）或 ●●○●（两个棋子连续）
+      // 跳四模式：●○●○●○（三个棋子，中间有空位）或 ●●○●○ 等
+      
+      // 从中心点向两边扩展，检测跳棋型
+      for (let start = 0; start <= 8; start++) {
+        // 检查从start开始的5个位置是否能形成跳棋型
+        if (start + 4 >= line.length) break;
         
-        // 检查目标位置是否为空
-        if (line[targetIndex].value !== 0) continue;
-        
-        // 模拟在目标位置落子
-        line[targetIndex].value = player;
-        
-        // 检查是否形成跳棋型
+        let pieceCount = 0;
         let gapCount = 0;
-        let pieceCount = 1; // 包含当前位置
+        let hasCurrentPiece = false;
         
-        // 向前检查
-        for (let j = targetIndex + 1; j < len && j < targetIndex + 5; j++) {
-          if (line[j].value === player) {
+        // 统计这5个位置的棋子数和空位数
+        for (let i = 0; i < 5; i++) {
+          const idx = start + i;
+          if (line[idx].value === player) {
             pieceCount++;
-          } else if (line[j].value === 0) {
+            if (idx === centerIndex) hasCurrentPiece = true;
+          } else if (line[idx].value === 0) {
             gapCount++;
           } else {
-            break; // 对方棋子
+            // 对方棋子，不能形成跳棋型
+            break;
           }
         }
         
-        // 向后检查
-        for (let j = targetIndex - 1; j >= 0 && j > targetIndex - 5; j--) {
-          if (line[j].value === player) {
-            pieceCount++;
-          } else if (line[j].value === 0) {
-            gapCount++;
-          } else {
-            break; // 对方棋子
-          }
-        }
+        // 如果提前break，说明有对方棋子，跳过
+        if (pieceCount === 0 && gapCount < 5) continue;
         
-        // 检查是否是跳棋型（有空位的棋型）
+        // 必须包含当前落子
+        if (!hasCurrentPiece) continue;
+        
+        // 检查是否是跳棋型（有空位且棋子数足够）
         if (gapCount >= 1 && pieceCount >= 2) {
-          if (pieceCount === 2) {
-            jumpThree++;
-          } else if (pieceCount >= 3) {
-            jumpFour++;
+          // 检查两端是否开放（用于判断是否是活跳棋型）
+          let openEnds = 0;
+          const leftOpen = start > 0 && line[start - 1].value === 0;
+          const rightOpen = start + 4 < line.length - 1 && line[start + 5].value === 0;
+          
+          if (leftOpen) openEnds++;
+          if (rightOpen) openEnds++;
+          
+          // 至少一端开放才算有效的跳棋型
+          if (openEnds >= 1) {
+            if (pieceCount === 2) {
+              jumpThree++;
+            } else if (pieceCount >= 3) {
+              jumpFour++;
+            }
           }
         }
-        
-        // 恢复原来的值
-        line[targetIndex].value = 0;
       }
     }
 
