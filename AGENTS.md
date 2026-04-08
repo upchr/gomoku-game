@@ -156,7 +156,7 @@ docker-compose down
 
 默认配置：
 ```javascript
-const WS_SERVER = new URLSearchParams(window.location.search).get('ws') || 'wss://gomoku-server-production-722d.up.railway.app';
+const WS_SERVER = new URLSearchParams(window.location.search).get('ws') || 'wss://gomoku-game-production.up.railway.app';
 ```
 
 Docker 构建时会自动替换默认值为动态地址，无需手动配置。

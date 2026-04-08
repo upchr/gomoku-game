@@ -22,7 +22,7 @@ RUN chmod 644 /usr/share/nginx/html/* && \
     chown -R nginx:nginx /usr/share/nginx/html
 
 # 替换 WS_SERVER 为使用 nginx 代理的相对路径
-RUN sed -i "s|'wss://gomoku-server-production-722d.up.railway.app'|'/ws'|g" /usr/share/nginx/html/index.html
+RUN sed -i "s|'wss://gomoku-game-production.up.railway.app'|'/ws'|g" /usr/share/nginx/html/index.html
 
 # 复制 nginx 配置
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf

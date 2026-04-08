@@ -5,6 +5,60 @@
  * 纯 Vanilla JS 实现，无外部依赖
  */
 
+// LRU 缓存类（用于置换表）
+class LRUCache {
+  constructor(maxSize) {
+    this.maxSize = maxSize;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) {
+      return undefined;
+    }
+    // 移动到最前面（标记为最近使用）
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key, value) {
+    // 如果已存在，删除旧的
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    // 设置新值
+    this.cache.set(key, value);
+    // 如果超出大小，删除最旧的
+    if (this.cache.size > this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+  }
+
+  has(key) {
+    return this.cache.has(key);
+  }
+
+  delete(key) {
+    return this.cache.delete(key);
+  }
+
+  get size() {
+    return this.cache.size;
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  // 为了兼容旧代码的迭代
+  forEach(callback) {
+    this.cache.forEach(callback);
+  }
+}
+
 class GomokuAI {
   constructor(difficulty = 'medium', boardSize = 15) {
     this.difficulty = difficulty;
@@ -16,10 +70,10 @@ class GomokuAI {
     
     // 初始化 Zobrist 哈希表
     this.zobrist = this.initZobrist();
-    
-    // 置换表（限制 50MB）
-    this.transpositionTable = new Map();
+
+    // 置换表配置（在创建 LRU 缓存之前定义）
     this.maxTableSize = 500000; // 约 50MB
+    this.transpositionTable = new LRUCache(this.maxTableSize);
     
     // 历史启发表（用于走法排序）
     this.historyTable = this.createArray2D(0);
@@ -50,7 +104,9 @@ class GomokuAI {
       LIVE_THREE: 15000,   // 活三（从 10000 提高到 15000）
       SLEEP_THREE: 1000,   // 眠三
       LIVE_TWO: 500,       // 活二
-      SLEEP_TWO: 100       // 眠二
+      SLEEP_TWO: 100,      // 眠二
+      JUMP_THREE: 8000,    // 跳三（中间有空位的活三）
+      JUMP_FOUR: 150000    // 跳四（中间有空位的冲四）
     };
     
     // 基于难度的防守权重倍数
@@ -210,7 +266,7 @@ class GomokuAI {
     return {
       // 空棋盘，下天元
       'empty': { row: 7, col: 7 },
-      
+
       // 对手下天元后的应对（根据棋盘大小调整）
       'center_response': {
         13: [
@@ -223,26 +279,74 @@ class GomokuAI {
           { row: 9, col: 9 }, { row: 9, col: 8 }, { row: 8, col: 9 }, { row: 10, col: 9 }, { row: 9, col: 10 }
         ]
       },
-      
+
       // 花月定式（斜向开局）
       'huayue': [
         [[7,7], [6,8], [8,6]], // 序列1
         [[7,7], [8,8], [6,6]], // 序列2
         [[7,7], [8,6], [9,5]], // 序列3（扩展）
-        [[7,7], [6,8], [5,9]]  // 序列4（扩展）
+        [[7,7], [6,8], [5,9]], // 序列4（扩展）
+        [[7,7], [8,8], [9,9]], // 序列5（扩展）
+        [[7,7], [6,6], [5,5]]  // 序列6（扩展）
       ],
-      
+
       // 浦月定式（直指开局）
       'puyue': [
         [[7,7], [7,8], [7,6]],     // 序列1
         [[7,7], [8,7], [9,7]],     // 序列2（扩展）
-        [[7,7], [6,7], [5,7]]      // 序列3（扩展）
+        [[7,7], [6,7], [5,7]],     // 序列3（扩展）
+        [[7,7], [7,6], [7,5]],     // 序列4（扩展）
+        [[7,7], [7,8], [7,9]]      // 序列5（扩展）
       ],
-      
+
       // 云月定式
       'yunyue': [
         [[7,7], [8,7], [8,8]],     // 序列1
-        [[7,7], [6,7], [6,6]]      // 序列2
+        [[7,7], [6,7], [6,6]],     // 序列2
+        [[7,7], [8,7], [9,7]],     // 序列3（扩展）
+        [[7,7], [6,7], [5,7]]      // 序列4（扩展）
+      ],
+
+      // 雨月定式
+      'yuyue': [
+        [[7,7], [8,8], [9,9]],     // 序列1
+        [[7,7], [6,8], [5,9]],     // 序列2
+        [[7,7], [8,6], [9,5]]      // 序列3
+      ],
+
+      // 松月定式
+      'songyue': [
+        [[7,7], [8,7], [7,8]],     // 序列1
+        [[7,7], [6,7], [7,6]],     // 序列2
+        [[7,7], [8,7], [9,7]]      // 序列3
+      ],
+
+      // 丘月定式
+      'qiuyue': [
+        [[7,7], [8,8], [7,9]],     // 序列1
+        [[7,7], [6,6], [7,5]],     // 序列2
+        [[7,7], [8,6], [9,5]]      // 序列3
+      ],
+
+      // 新月定式
+      'xinyue': [
+        [[7,7], [8,7], [8,9]],     // 序列1
+        [[7,7], [6,7], [6,9]],     // 序列2
+        [[7,7], [7,8], [9,8]]      // 序列3
+      ],
+
+      // 残月定式
+      'canyue': [
+        [[7,7], [8,7], [9,8]],     // 序列1
+        [[7,7], [6,7], [5,8]],     // 序列2
+        [[7,7], [7,8], [8,9]]      // 序列3
+      ],
+
+      // 金星定式（强势开局）
+      'jinxing': [
+        [[7,7], [7,8], [8,7]],     // 序列1
+        [[7,7], [7,6], [6,7]],     // 序列2
+        [[7,7], [8,8], [6,6]]      // 序列3
       ]
     };
   }
@@ -303,15 +407,65 @@ class GomokuAI {
   
   // 查找定式走法
   findBookMove(board, player) {
-    // 简单实现：如果有成双三或活四机会，优先下
-    // 这里可以扩展更复杂的定式识别
-    const candidates = this.getCandidateMoves(board);
-    for (const move of candidates) {
-      const score = this.quickEvaluate(board, move.row, move.col, player);
-      if (score >= this.patternScores.LIVE_FOUR) {
-        return move;
+    const totalPieces = this.countPieces(board);
+
+    // 只在前 8 步使用定式
+    if (totalPieces > 8) {
+      return null;
+    }
+
+    // 只在棋子较少时使用定式（前4步）
+    if (totalPieces > 4) {
+      return null;
+    }
+
+    // 尝试匹配各种定式
+    const patterns = ['huayue', 'puyue', 'yunyue', 'yuyue', 'songyue', 'qiuyue', 'xinyue', 'canyue', 'jinxing'];
+
+    for (const patternName of patterns) {
+      const patternMoves = this.openingBook[patternName];
+      if (!patternMoves) continue;
+
+      for (const sequence of patternMoves) {
+        // 检查当前棋盘是否匹配这个序列
+        let match = true;
+        let matchedCount = 0;
+
+        // 检查序列中的每一步是否与棋盘匹配
+        for (let i = 0; i < Math.min(sequence.length, totalPieces + 1); i++) {
+          const pos = sequence[i];
+          if (pos[0] >= this.size || pos[1] >= this.size) {
+            match = false;
+            break;
+          }
+
+          const actual = board[pos[0]][pos[1]];
+          // 如果位置有棋子，必须匹配序列中的玩家
+          if (actual !== 0) {
+            // 检查是否是当前玩家的走法
+            // 注意：定式假设黑方先手，所以需要根据当前 player 调整
+            const expectedPlayer = (i % 2 === 0) ? 1 : 2;
+            if (actual !== expectedPlayer) {
+              match = false;
+              break;
+            }
+            matchedCount++;
+          }
+        }
+
+        if (match && matchedCount === totalPieces) {
+          // 找到匹配，返回序列中的下一个位置
+          const nextIndex = matchedCount;
+          if (nextIndex < sequence.length) {
+            const nextPos = sequence[nextIndex];
+            if (board[nextPos[0]][nextPos[1]] === 0) {
+              return { row: nextPos[0], col: nextPos[1] };
+            }
+          }
+        }
       }
     }
+
     return null;
   }
   
@@ -468,7 +622,29 @@ class GomokuAI {
       this.depthConfig.max += 1;
       console.log('AI: 终局阶段，增加搜索深度', { newMax: this.depthConfig.max });
     }
-    
+
+    // 终局多重威胁检测
+    if (complexity > 0.7) {
+      const multipleThreats = this.detectMultipleThreats(board, player);
+      if (multipleThreats.length > 0) {
+        console.log('AI: 终局检测到多重威胁', multipleThreats.slice(0, 5));
+        // 如果有必胜走法（活四或冲四），直接返回
+        const winningThreat = multipleThreats.find(t =>
+          t.attackScore >= this.patternScores.LIVE_FOUR || t.attackScore >= this.patternScores.RUSH_FOUR
+        );
+        if (winningThreat) {
+          console.log('AI: 终局找到必胜走法', winningThreat);
+          return winningThreat;
+        }
+        // 如果有必须防守的走法，优先返回
+        const defenseThreat = multipleThreats.find(t => t.defenseScore >= this.patternScores.LIVE_FOUR);
+        if (defenseThreat) {
+          console.log('AI: 终局必须防守', defenseThreat);
+          return defenseThreat;
+        }
+      }
+    }
+
     // 调试：检查对手威胁
     const opponent = 3 - player;
     const opponentThreats = this.checkThreats(board, opponent);
@@ -584,21 +760,69 @@ class GomokuAI {
   // 检查对手威胁（用于调试）
   checkThreats(board, player) {
     const threats = [];
-    
+
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
         if (board[i][j] === 0) {
           board[i][j] = player;
           const score = this.evaluatePoint(board, i, j, player);
           board[i][j] = 0;
-          
+
           if (score >= this.patternScores.LIVE_THREE) {
             threats.push({ row: i, col: j, score, type: score >= this.patternScores.LIVE_FOUR ? 'LIVE_FOUR' : score >= this.patternScores.RUSH_FOUR ? 'RUSH_FOUR' : 'LIVE_THREE' });
           }
         }
       }
     }
-    
+
+    return threats;
+  }
+
+  // 检测终局时的多重威胁
+  detectMultipleThreats(board, player) {
+    const threats = [];
+    const complexity = this.countPieces(board) / (this.size * this.size);
+
+    // 只在终局阶段检测（棋子超过70%）
+    if (complexity < 0.7) {
+      return threats;
+    }
+
+    // 只检测候选点，而不是整个棋盘
+    const candidates = this.getCandidateMoves(board);
+    const opponent = 3 - player;
+
+    for (const move of candidates) {
+      // 评估进攻威胁
+      board[move.row][move.col] = player;
+      const attackScore = this.evaluatePoint(board, move.row, move.col, player, true);
+      board[move.row][move.col] = 0;
+
+      // 评估防守威胁
+      board[move.row][move.col] = opponent;
+      const defenseScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
+      board[move.row][move.col] = 0;
+
+      // 如果有高威胁，记录
+      if (attackScore >= this.patternScores.LIVE_THREE || defenseScore >= this.patternScores.LIVE_THREE) {
+        threats.push({
+          row: move.row,
+          col: move.col,
+          attackScore,
+          defenseScore,
+          isAttack: attackScore >= this.patternScores.LIVE_THREE,
+          isDefense: defenseScore >= this.patternScores.LIVE_THREE
+        });
+      }
+    }
+
+    // 按威胁程度排序
+    threats.sort((a, b) => {
+      const maxA = Math.max(a.attackScore, a.defenseScore);
+      const maxB = Math.max(b.attackScore, b.defenseScore);
+      return maxB - maxA;
+    });
+
     return threats;
   }
   
@@ -800,15 +1024,13 @@ class GomokuAI {
       }
     }
     
-    // 存入置换表
-    if (this.transpositionTable.size < this.maxTableSize) {
-      this.transpositionTable.set(hashStr, {
-        score: bestScore,
-        depth: depth,
-        flag: flag,
-        age: this.tableAge
-      });
-    }
+    // 存入置换表（LRU 缓存会自动管理大小）
+    this.transpositionTable.set(hashStr, {
+      score: bestScore,
+      depth: depth,
+      flag: flag,
+      age: this.tableAge
+    });
     
     return bestScore;
   }
@@ -1030,6 +1252,11 @@ class GomokuAI {
     // 组合棋型加分（只在评估己方棋子时计算）
     if (includeCombos) {
       score += this.evaluateCombinations(patterns);
+
+      // 跳棋型加分
+      const jumpPatterns = this.detectJumpPatterns(board, row, col, player);
+      score += jumpPatterns.jumpThree * this.patternScores.JUMP_THREE;
+      score += jumpPatterns.jumpFour * this.patternScores.JUMP_FOUR;
     }
 
     // 加上位置权重
@@ -1041,34 +1268,110 @@ class GomokuAI {
   // 评估组合棋型（双活三、冲四活三等）
   evaluateCombinations(patterns) {
     let bonus = 0;
-    
+
     // 统计各种棋型数量
     let liveThree = 0;
     let rushFour = 0;
     let liveTwo = 0;
-    
+
     for (const p of patterns) {
       if (p.score === this.patternScores.LIVE_THREE) liveThree++;
       else if (p.score === this.patternScores.RUSH_FOUR) rushFour++;
       else if (p.score === this.patternScores.LIVE_TWO) liveTwo++;
     }
-    
+
     // 双活三 = 50000（几乎必胜）
     if (liveThree >= 2) {
       bonus += 50000;
     }
-    
+
     // 冲四活三 = 30000（很强）
     if (rushFour >= 1 && liveThree >= 1) {
       bonus += 30000;
     }
-    
+
     // 双活二 = 500（有潜力）
     if (liveTwo >= 2) {
       bonus += 500;
     }
-    
+
     return bonus;
+  }
+
+  // 检测跳棋型（跳三、跳四）
+  detectJumpPatterns(board, row, col, player) {
+    let jumpThree = 0;
+    let jumpFour = 0;
+
+    for (const [dx, dy] of this.directions) {
+      // 获取这个方向上以 (row, col) 为中心的所有点
+      const line = [];
+      for (let i = -4; i <= 4; i++) {
+        const ni = row + i * dx;
+        const nj = col + i * dy;
+        if (ni >= 0 && ni < this.size && nj >= 0 && nj < this.size) {
+          line.push({ row: ni, col: nj, value: board[ni][nj] });
+        }
+      }
+
+      const len = line.length;
+      const centerIndex = 4; // 中心点索引
+
+      // 只检测以 (row, col) 为起点的跳棋型
+      // 跳三：●○●○●（两个棋子，中间有一个空位）
+      // 跳四：●○●○●○（三个棋子，中间有多个空位）
+      
+      for (let step = 1; step <= 3; step++) {
+        const targetIndex = centerIndex + step;
+        if (targetIndex >= len) break;
+        
+        // 检查目标位置是否为空
+        if (line[targetIndex].value !== 0) continue;
+        
+        // 模拟在目标位置落子
+        line[targetIndex].value = player;
+        
+        // 检查是否形成跳棋型
+        let gapCount = 0;
+        let pieceCount = 1; // 包含当前位置
+        
+        // 向前检查
+        for (let j = targetIndex + 1; j < len && j < targetIndex + 5; j++) {
+          if (line[j].value === player) {
+            pieceCount++;
+          } else if (line[j].value === 0) {
+            gapCount++;
+          } else {
+            break; // 对方棋子
+          }
+        }
+        
+        // 向后检查
+        for (let j = targetIndex - 1; j >= 0 && j > targetIndex - 5; j--) {
+          if (line[j].value === player) {
+            pieceCount++;
+          } else if (line[j].value === 0) {
+            gapCount++;
+          } else {
+            break; // 对方棋子
+          }
+        }
+        
+        // 检查是否是跳棋型（有空位的棋型）
+        if (gapCount >= 1 && pieceCount >= 2) {
+          if (pieceCount === 2) {
+            jumpThree++;
+          } else if (pieceCount >= 3) {
+            jumpFour++;
+          }
+        }
+        
+        // 恢复原来的值
+        line[targetIndex].value = 0;
+      }
+    }
+
+    return { jumpThree, jumpFour };
   }
   
   // 统计一条线上的棋子
@@ -1186,19 +1489,10 @@ class GomokuAI {
     return hash;
   }
   
-  // 清理置换表
+  // 清理置换表（LRU 缓存会自动管理，这里只是定期重置 age）
   cleanTranspositionTable() {
-    // 删除旧年龄的项
-    for (const [key, value] of this.transpositionTable) {
-      if (value.age < this.tableAge) {
-        this.transpositionTable.delete(key);
-      }
-    }
-    
-    // 如果还是太大，清空
-    if (this.transpositionTable.size > this.maxTableSize * 0.8) {
-      this.transpositionTable.clear();
-    }
+    // LRU 缓存会自动管理大小，不需要手动清理
+    // 这里保留函数接口以保持兼容性
   }
 }
 
