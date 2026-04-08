@@ -1043,9 +1043,6 @@ class GomokuAI {
     }
     
     // 存入置换表（LRU 缓存会自动管理大小）
-    // 使用缓存的棋子数，避免重复计算
-    const currentPieceCount = this.searchStats.pieceCount || this.countPieces(board);
-    
     this.transpositionTable.set(hashStr, {
       score: bestScore,
       depth: depth,
