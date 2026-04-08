@@ -354,9 +354,28 @@ function handlePlacePiece(ws, data) {
   room.lastActivityAt = Date.now();
   
   const winner = checkWin(room.board, row, col, color, room.boardSize);
-  
+
   if (winner) {
-    room.matchWins[color]++;
+    // 根据原始玩家位置更新比分（color 1对应room.players[0]，color 2对应room.players[1]）
+    // 但由于会交换颜色，我们需要根据玩家在数组中的原始位置来更新比分
+    // 第一局：players[0]是color 1，players[1]是color 2
+    // 第二局：交换后，players[0]是原来的players[1]，players[1]是原来的players[0]
+    // 所以我们需要根据玩家的userId来判断谁是原始的玩家1和玩家2
+    const winnerIndex = color - 1; // 0 或 1
+    const winnerPlayer = room.players[winnerIndex];
+
+    // 使用玩家在数组中的位置来更新比分（这样交换后比分会跟着玩家走）
+    if (winnerPlayer) {
+      // 找到这个玩家在原始数组中的位置（通过检查他是房主还是加入者）
+      // 房主的id是room.hostId
+      const isHost = winnerPlayer.id === room.hostId;
+      if (isHost) {
+        room.matchWins[1]++; // 房主（原始玩家1）得分
+      } else {
+        room.matchWins[2]++; // 加入者（原始玩家2）得分
+      }
+    }
+
     room.status = 'finished';
     room.finishedAt = Date.now();
     room.playAgainRequested = false;  // 清除标志位，允许新的"再来一局"请求

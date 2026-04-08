@@ -1608,6 +1608,7 @@
                 GameState.roomCode = data.roomCode;
                 GameState.myColor = data.color; // 房主执黑
                 GameState.myUserId = data.userId; // 存储用户ID
+                GameState.isHost = true; // 标记为房主
 
                 document.getElementById('displayRoomCode').textContent = data.roomCode;
 
@@ -1629,6 +1630,7 @@
                 GameState.roomCode = data.roomCode;
                 GameState.myColor = data.color; // 加入者执白
                 GameState.myUserId = data.userId; // 存储用户ID
+                GameState.isHost = false; // 标记为加入者
                 GameState.myName = document.getElementById('onlineNickname').value || '玩家';
                 GameState.opponentName = data.opponent.name; // 对手名字
                 GameState.matchMode = data.matchMode || 1;
@@ -1822,10 +1824,24 @@
 
             function updateMatchInfo() {
                 const targetWins = Math.ceil(GameState.matchMode / 2);
+
+                // 按照自己的视角显示比分
+                // matchWins[1] = 房主得分, matchWins[2] = 加入者得分
+                let myScore, opponentScore;
+                if (GameState.isHost) {
+                    // 我是房主
+                    myScore = GameState.matchWins[1];
+                    opponentScore = GameState.matchWins[2];
+                } else {
+                    // 我是加入者
+                    myScore = GameState.matchWins[2];
+                    opponentScore = GameState.matchWins[1];
+                }
+
                 document.getElementById('matchInfo').textContent =
-                    `第 ${GameState.currentRound} 局 (${GameState.matchWins[1]}:${GameState.matchWins[2]} / ${targetWins}胜)`;
-                document.getElementById('scoreP1').textContent = GameState.matchWins[1];
-                document.getElementById('scoreP2').textContent = GameState.matchWins[2];
+                    `第 ${GameState.currentRound} 局 (${myScore}:${opponentScore} / ${targetWins}胜)`;
+                document.getElementById('scoreP1').textContent = myScore;
+                document.getElementById('scoreP2').textContent = opponentScore;
             }
 
             // 渲染棋盘 - Canvas 方案（经典稳定）
