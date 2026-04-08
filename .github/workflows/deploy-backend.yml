@@ -9,7 +9,6 @@ env:
   RAILWAY_SERVICE_ID: "${{ secrets.GOMOKU_RAILWAY_SERVICE_ID }}"
   RAILWAY_ENVIRONMENT_ID: "${{ secrets.GOMOKU_RAILWAY_ENVIRONMENT_ID }}"
   RAILWAY_TOKEN: "${{ secrets.RAILWAY_TOKEN }}"
-  TAG: ${{ github.ref_name }}
 
 jobs:
   deploy:
@@ -19,36 +18,55 @@ jobs:
 
       - name: Trigger Railway deployment
         run: |
-          DEPLOYMENT_ID=$(curl -s -X POST \
+          RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ env.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceDeployV2(serviceId: \"'${{ env.RAILWAY_SERVICE_ID }}'\", environmentId: \"'${{ env.RAILWAY_ENVIRONMENT_ID }}'\", commitSha: \"${{ github.sha }}\") { id } }"}' \
-            https://backboard.railway.com/graphql/v2 | jq -r '.data.serviceInstanceDeployV2.id')
+            -d '{
+              "query": "mutation { serviceInstanceDeployV2(serviceId: \"${{ env.RAILWAY_SERVICE_ID }}\", environmentId: \"${{ env.RAILWAY_ENVIRONMENT_ID }}\", commitSha: \"${{ github.sha }}\") { id status } }"
+            }' \
+            https://backboard.railway.com/graphql/v2)
+          
+          echo "Response: $RESPONSE"
+          
+          DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.data.serviceInstanceDeployV2.id // empty')
+          
+          if [ -z "$DEPLOYMENT_ID" ]; then
+            echo "❌ Failed to get deployment ID"
+            echo "Full response: $RESPONSE"
+            exit 1
+          fi
           
           echo "Deployment ID: $DEPLOYMENT_ID"
           echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
 
       - name: Wait for deployment
         run: |
-          for i in {1..60}; do
-            STATUS=$(curl -s \
+          DEPLOYMENT_ID=${{ env.DEPLOYMENT_ID }}
+          
+          for i in {1..120}; do
+            RESPONSE=$(curl -s -X POST \
               -H "Authorization: Bearer ${{ env.RAILWAY_TOKEN }}" \
               -H "Content-Type: application/json" \
-              -d '{"query":"query { deployment(id: \"'${DEPLOYMENT_ID}'\") { status } }"}' \
-              https://backboard.railway.com/graphql/v2 | jq -r '.data.deployment.status')
+              -d '{
+                "query": "query { deployment(id: \"'$DEPLOYMENT_ID'\") { status } }"
+              }' \
+              https://backboard.railway.com/graphql/v2)
           
-            echo "Deployment status: $STATUS"
+            STATUS=$(echo "$RESPONSE" | jq -r '.data.deployment.status // empty')
+          
+            echo "[$i/120] Deployment status: $STATUS"
           
             if [ "$STATUS" = "SUCCESS" ]; then
               echo "✅ Deployment succeeded!"
               exit 0
             elif [ "$STATUS" = "FAILED" ]; then
               echo "❌ Deployment failed!"
+              echo "Response: $RESPONSE"
               exit 1
             fi
           
-            sleep 10
+            sleep 5
           done
           
-          echo "⏰ Deployment timeout"
+          echo "⏰ Deployment timeout after 10 minutes"
           exit 1

@@ -149,10 +149,12 @@ class GomokuAI {
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
         if (board[i][j] === player) {
-          const score = this.evaluatePoint(board, i, j, player);
+          // 评估己方棋子，计算组合棋型
+          const score = this.evaluatePoint(board, i, j, player, true);
           myScore += score;
         } else if (board[i][j] === opponent) {
-          const score = this.evaluatePoint(board, i, j, opponent);
+          // 评估对手棋子，不计算组合棋型（避免重复计算）
+          const score = this.evaluatePoint(board, i, j, opponent, false);
           opponentScore += score;
         }
       }
@@ -873,7 +875,8 @@ class GomokuAI {
     
     for (const move of moves) {
       board[move.row][move.col] = opponent;
-      const opponentScore = this.evaluatePoint(board, move.row, move.col, opponent);
+      // 不计算组合棋型，避免误判双活三等为必须防守
+      const opponentScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
       board[move.row][move.col] = 0;
       
       // 如果对手有活四，必须防守
@@ -895,6 +898,10 @@ class GomokuAI {
     let alpha = -Infinity;
     const beta = Infinity;
     
+    // 计算初始哈希值（优化：只计算一次）
+    const initialHash = this.calculateHash(board);
+    let currentHash = initialHash;
+    
     for (let i = 0; i < moves.length; i++) {
       // 时间检查：直接检查时间，确保及时中断
       if (Date.now() - this.startTime > this.timeLimit) {
@@ -906,23 +913,25 @@ class GomokuAI {
       
       // 执行走法
       board[move.row][move.col] = player;
-      const hash = this.calculateHash(board);
+      // 优化：使用增量更新计算哈希值，而不是重新计算整个棋盘
+      currentHash = currentHash ^ this.zobrist[move.row][move.col][player];
       
       // PVS 搜索
       let score;
       if (i === 0) {
-        score = -this.pvs(board, depth - 1, -beta, -alpha, 3 - player, hash);
+        score = -this.pvs(board, depth - 1, -beta, -alpha, 3 - player, currentHash);
       } else {
         // 零窗口搜索
-        score = -this.pvs(board, depth - 1, -alpha - 1, -alpha, 3 - player, hash);
+        score = -this.pvs(board, depth - 1, -alpha - 1, -alpha, 3 - player, currentHash);
         if (score > alpha && score < beta) {
           // 重新搜索
-          score = -this.pvs(board, depth - 1, -beta, -score, 3 - player, hash);
+          score = -this.pvs(board, depth - 1, -beta, -score, 3 - player, currentHash);
         }
       }
       
-      // 撤销走法
+      // 撤销走法并恢复哈希值（XOR 操作是可逆的）
       board[move.row][move.col] = 0;
+      currentHash = currentHash ^ this.zobrist[move.row][move.col][player];
       
       if (score > bestScore) {
         bestScore = score;
