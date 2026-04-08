@@ -506,14 +506,21 @@ function handlePlayAgain(ws) {
   // 设置该玩家准备状态
   room.playAgainReady[color - 1] = true;
 
-  // 检查比赛是否结束，如果结束则重置比分
+  // 检查比赛是否结束
   const targetWins = Math.ceil(room.matchMode / 2);
   const matchEnded = room.matchWins[1] >= targetWins || room.matchWins[2] >= targetWins;
 
-  if (matchEnded && room.playAgainReady[0] && room.playAgainReady[1]) {
-    // 双方都准备好了且比赛已结束，重置比分和局数
-    room.matchWins = { 1: 0, 2: 0 };
-    room.currentRound = 1;
+  // 如果双方都准备好了，开始新游戏
+  if (room.playAgainReady[0] && room.playAgainReady[1]) {
+    if (matchEnded) {
+      // 比赛结束，再赛一轮：重置比分和局数
+      room.matchWins = { 1: 0, 2: 0 };
+      room.currentRound = 1;
+    } else {
+      // 比赛进行中，下一局：增加局数
+      room.currentRound++;
+    }
+    startNewGame(room);
   }
 
   // 通知双方准备状态
@@ -523,11 +530,6 @@ function handlePlayAgain(ws) {
     matchWins: room.matchWins,
     currentRound: room.currentRound
   });
-
-  // 如果双方都准备好了，开始新游戏
-  if (room.playAgainReady[0] && room.playAgainReady[1]) {
-    startNewGame(room);
-  }
 }
 
 // 开始新游戏
@@ -537,7 +539,6 @@ function startNewGame(room) {
   room.moves = [];
   room.currentPlayer = 1;
   room.status = 'playing';
-  room.currentRound++;
   room.lastActivityAt = Date.now();
   room.finishedAt = null;
 

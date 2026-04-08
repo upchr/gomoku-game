@@ -653,6 +653,9 @@
                     <div class="undo-count">悔棋: <span id="myUndo">3</span>次</div>
                 </div>
 
+                <!-- 准备状态显示 -->
+                <div id="boardReadyStatus" style="text-align: center; color: #3498db; font-size: 12px; margin: 5px 0; display: none;">等待双方准备...</div>
+
                 <div class="controls">
                     <button class="btn btn-success" id="readyBtn" style="display:none;" onclick="sendReady()">准备</button>
                     <button class="btn btn-warning" id="undoBtn" onclick="requestUndo()">悔棋</button>
@@ -2244,6 +2247,8 @@
                 if (GameState.gameMode === 'online') {
                     const readyBtn = document.getElementById('readyBtn');
                     const restartBtn = document.getElementById('restartBtn');
+                    const boardReadyStatus = document.getElementById('boardReadyStatus');
+
                     if (readyBtn) {
                         readyBtn.style.display = 'inline-block';
                         // 根据比赛状态显示不同的文本
@@ -2252,6 +2257,13 @@
                     }
                     if (restartBtn) {
                         restartBtn.style.display = 'none';
+                    }
+
+                    // 显示棋盘下方的准备状态
+                    if (boardReadyStatus) {
+                        boardReadyStatus.style.display = 'block';
+                        boardReadyStatus.textContent = '等待双方准备...';
+                        boardReadyStatus.style.color = '#3498db';
                     }
                 }
 
@@ -2406,6 +2418,7 @@
                 const readyStatus = document.getElementById('readyStatus');
                 const modalReadyBtn = document.getElementById('modalReadyBtn');
                 const readyBtn = document.getElementById('readyBtn');
+                const boardReadyStatus = document.getElementById('boardReadyStatus');
 
                 if (!readyStatus) return;
 
@@ -2435,15 +2448,29 @@
                     }
                 }
 
+                // 更新准备状态文本
+                let statusText = '';
+                let statusColor = '';
+
                 if (myReady && opponentReady) {
-                    readyStatus.textContent = '双方已准备，即将开始...';
-                    readyStatus.style.color = '#2ecc71';
+                    statusText = '双方已准备，即将开始...';
+                    statusColor = '#2ecc71';
                 } else if (opponentReady) {
-                    readyStatus.textContent = '对手已准备，等你确认';
-                    readyStatus.style.color = '#f39c12';
+                    statusText = '对手已准备，等你确认';
+                    statusColor = '#f39c12';
                 } else {
-                    readyStatus.textContent = '等待双方准备...';
-                    readyStatus.style.color = '#3498db';
+                    statusText = '等待双方准备...';
+                    statusColor = '#3498db';
+                }
+
+                // 更新弹窗中的状态
+                readyStatus.textContent = statusText;
+                readyStatus.style.color = statusColor;
+
+                // 更新棋盘下方的状态
+                if (boardReadyStatus) {
+                    boardReadyStatus.textContent = statusText;
+                    boardReadyStatus.style.color = statusColor;
                 }
 
                 // 更新按钮状态
@@ -2458,14 +2485,19 @@
             }
 
             function handlePlayAgain(data) {
-                // 隐藏准备按钮
+                // 隐藏准备按钮和准备状态
                 const readyBtn = document.getElementById('readyBtn');
                 const restartBtn = document.getElementById('restartBtn');
+                const boardReadyStatus = document.getElementById('boardReadyStatus');
+
                 if (readyBtn) {
                     readyBtn.style.display = 'none';
                 }
                 if (restartBtn) {
                     restartBtn.style.display = 'inline-block';
+                }
+                if (boardReadyStatus) {
+                    boardReadyStatus.style.display = 'none';
                 }
 
                 // 更新局数和比分（使用服务端返回的值）
