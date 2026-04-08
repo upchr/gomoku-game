@@ -702,7 +702,10 @@
                     <h3>📋 对局记录</h3>
                     <div id="historyList"></div>
                 </div>
-                <button class="menu-btn secondary" onclick="closeHistory()">返回菜单</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="menu-btn warning" onclick="clearHistory()">清空记录</button>
+                    <button class="menu-btn secondary" onclick="closeHistory()">返回菜单</button>
+                </div>
             </div>
         </div>
 
@@ -2985,6 +2988,15 @@
                         <div style="color: #2ecc71; font-weight: 600; font-size: 12px;">${g.winner} ${g.winner !== '平局' ? '胜' : ''}</div>
                     </div>
                 `).join('');
+            }
+
+            function clearHistory() {
+                if (!confirm('确定要清空所有对局记录吗？此操作不可恢复。')) {
+                    return;
+                }
+                localStorage.removeItem('gomoku_history');
+                renderHistory();
+                showToast('对局记录已清空');
             }
         </script>
     </div>
