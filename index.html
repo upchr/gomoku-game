@@ -939,7 +939,9 @@
             // WebSocket 服务器地址配置
             // 默认值由构建时决定：Docker 构建会替换为动态地址，GitHub Pages/Railway 保持 Railway 地址
             // 可通过 URL 参数覆盖：?ws=ws://自定义地址
-            const WS_SERVER = new URLSearchParams(window.location.search).get('ws') || 'wss://gomoku-server-production-722d.up.railway.app';
+            // WebSocket 服务器地址配置
+            // Railway 域名待部署后更新
+            const WS_SERVER = new URLSearchParams(window.location.search).get('ws') || 'wss://gomoku-game-production.up.railway.app';
 
             let ws = null;
             let wsConnected = false;
