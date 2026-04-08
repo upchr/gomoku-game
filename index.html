@@ -2246,7 +2246,8 @@
                     const restartBtn = document.getElementById('restartBtn');
                     if (readyBtn) {
                         readyBtn.style.display = 'inline-block';
-                        readyBtn.textContent = '准备';
+                        // 根据比赛状态显示不同的文本
+                        readyBtn.textContent = GameState.matchEnded ? '再赛一轮' : '下一局';
                         readyBtn.disabled = false;
                     }
                     if (restartBtn) {
@@ -2270,17 +2271,22 @@
 
                 if (!modalReadyBtn || !closeBtn) return;
 
-                // 重置准备按钮状态
-                modalReadyBtn.textContent = '准备';
-                modalReadyBtn.disabled = false;
-                modalReadyBtn.onclick = function() {
-                    if (GameState.matchEnded) {
-                        // 比赛结束：重置比分，然后准备
-                        GameState.matchWins = { 1: 0, 2: 0 };
-                        GameState.currentRound = 1;
-                    }
-                    sendReady();
-                };
+                // 根据比赛状态显示不同的按钮文本
+                if (GameState.matchEnded) {
+                    // 比赛结束：显示"再赛一轮"
+                    modalReadyBtn.textContent = '再赛一轮';
+                    modalReadyBtn.disabled = false;
+                    modalReadyBtn.onclick = function() {
+                        sendReady();
+                    };
+                } else {
+                    // 比赛进行中：显示"下一局"
+                    modalReadyBtn.textContent = '下一局';
+                    modalReadyBtn.disabled = false;
+                    modalReadyBtn.onclick = function() {
+                        sendReady();
+                    };
+                }
 
                 closeBtn.textContent = '查看棋谱';
                 closeBtn.onclick = closeWinModal;
@@ -2403,8 +2409,31 @@
 
                 if (!readyStatus) return;
 
+                // 更新比分和局数（如果服务端发送了）
+                if (data.matchWins) {
+                    GameState.matchWins = data.matchWins;
+                }
+                if (data.currentRound) {
+                    GameState.currentRound = data.currentRound;
+                }
+
+                // 更新比赛结束状态
+                const targetWins = Math.ceil(GameState.matchMode / 2);
+                GameState.matchEnded = GameState.matchWins[1] >= targetWins || GameState.matchWins[2] >= targetWins;
+
                 const myReady = data.ready[GameState.myColor - 1];
                 const opponentReady = data.ready[GameState.myColor === 1 ? 1 : 0];
+
+                // 更新按钮文本（只有在自己未准备时才更新）
+                if (!myReady) {
+                    const buttonText = GameState.matchEnded ? '再赛一轮' : '下一局';
+                    if (modalReadyBtn) {
+                        modalReadyBtn.textContent = buttonText;
+                    }
+                    if (readyBtn) {
+                        readyBtn.textContent = buttonText;
+                    }
+                }
 
                 if (myReady && opponentReady) {
                     readyStatus.textContent = '双方已准备，即将开始...';
@@ -2420,11 +2449,9 @@
                 // 更新按钮状态
                 if (opponentReady && !myReady) {
                     if (modalReadyBtn) {
-                        modalReadyBtn.textContent = '准备';
                         modalReadyBtn.disabled = false;
                     }
                     if (readyBtn) {
-                        readyBtn.textContent = '准备';
                         readyBtn.disabled = false;
                     }
                 }

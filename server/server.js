@@ -506,10 +506,22 @@ function handlePlayAgain(ws) {
   // 设置该玩家准备状态
   room.playAgainReady[color - 1] = true;
 
+  // 检查比赛是否结束，如果结束则重置比分
+  const targetWins = Math.ceil(room.matchMode / 2);
+  const matchEnded = room.matchWins[1] >= targetWins || room.matchWins[2] >= targetWins;
+
+  if (matchEnded && room.playAgainReady[0] && room.playAgainReady[1]) {
+    // 双方都准备好了且比赛已结束，重置比分和局数
+    room.matchWins = { 1: 0, 2: 0 };
+    room.currentRound = 1;
+  }
+
   // 通知双方准备状态
   broadcastToRoom(roomCode, {
     type: 'play_again_status',
-    ready: room.playAgainReady
+    ready: room.playAgainReady,
+    matchWins: room.matchWins,
+    currentRound: room.currentRound
   });
 
   // 如果双方都准备好了，开始新游戏
