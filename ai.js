@@ -72,13 +72,13 @@ class GomokuAI {
   
   // 根据难度获取防守权重倍数
   getDefenseMultiplier(difficulty) {
-    // 简单：防守权重较低，更注重进攻
-    // 中等：攻守平衡
-    // 困难：防守权重较高，更注重防守
+    // 简单：防守权重适中，攻守平衡
+    // 中等：防守权重较高，更注重防守
+    // 困难：防守权重很高，非常注重防守
     const multiplierMap = {
-      'easy': 0.8,
-      'medium': 1.0,
-      'hard': 1.2
+      'easy': 0.9,
+      'medium': 1.1,
+      'hard': 1.3
     };
     return multiplierMap[difficulty] || 1.0;
   }
@@ -184,21 +184,22 @@ class GomokuAI {
   // 根据棋盘大小和难度获取时间限制
   getTimeLimitConfig(difficulty, boardSize) {
     // 大棋盘需要更多思考时间
+    // 提高简单模式的时间限制，确保 AI 有足够时间防守
     const timeMap = {
       13: {
-        'easy': 300,
-        'medium': 600,
-        'hard': 1200
-      },
-      15: {
-        'easy': 400,
+        'easy': 500,
         'medium': 800,
         'hard': 1500
       },
-      19: {
-        'easy': 500,
+      15: {
+        'easy': 600,
         'medium': 1000,
         'hard': 2000
+      },
+      19: {
+        'easy': 700,
+        'medium': 1200,
+        'hard': 2500
       }
     };
     return timeMap[boardSize]?.[difficulty] || timeMap[15][difficulty];
@@ -662,8 +663,8 @@ class GomokuAI {
     const beta = Infinity;
     
     for (let i = 0; i < moves.length; i++) {
-      // 时间检查
-      if (this.nodeCount % 256 === 0 && Date.now() - this.startTime > this.timeLimit) {
+      // 时间检查（提高检查频率，从 256 改为 64）
+      if (this.nodeCount % 64 === 0 && Date.now() - this.startTime > this.timeLimit) {
         break;
       }
       
@@ -929,10 +930,10 @@ class GomokuAI {
     
     // 按分数降序排序
     moves.sort((a, b) => b.score - a.score);
-    
-    // 只保留前 20 个最有希望的走法（进一步剪枝）
-    if (moves.length > 20) {
-      return moves.slice(0, 20);
+
+    // 只保留前 30 个最有希望的走法（进一步剪枝，从 20 增加到 30）
+    if (moves.length > 30) {
+      return moves.slice(0, 30);
     }
     return moves;
   }

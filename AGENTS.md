@@ -47,16 +47,20 @@ gomoku-game/
 ├── ai-worker.js        # Web Worker 包装器（后台 AI 计算）
 ├── README.md           # 项目说明文档
 ├── AGENTS.md           # 项目上下文文档（本文件）
+├── .gitignore          # Git 忽略配置
 ├── docker/             # Docker 部署配置
 │   ├── Dockerfile      # 多阶段构建配置
 │   ├── nginx.conf      # Nginx 配置（前端托管 + WebSocket 代理）
 │   └── docker-compose.yml  # 前后端服务编排
+├── frontend/           # 前端模块目录（预留，目前仅用于 node_modules）
 └── server/
     ├── server.js       # WebSocket 服务器（房间管理、落子同步等）
     ├── package.json    # 服务器依赖和脚本配置
     ├── railway.json    # Railway 部署配置
     └── README.md       # 服务器部署和 API 文档
 ```
+
+**当前版本**: v3.1.5
 
 ## 构建和运行
 
@@ -98,6 +102,12 @@ railway up
 4. 选择 `gomoku-game` 仓库
 5. 设置 Root Directory 为 `server`
 6. Railway 会自动检测并部署
+
+**Railway 配置**
+- `server/railway.json`：Railway 部署配置
+- 使用 NIXPACKS 构建器
+- 启动命令：`npm start`
+- 重启策略：失败时自动重启，最多重试 10 次
 
 #### Docker 部署
 
@@ -165,6 +175,7 @@ Docker 构建时会自动替换默认值为动态地址，无需手动配置。
 - AI 逻辑在 `ai.js` 中独立实现
 - Web Worker 在 `ai-worker.js` 中包装 AI 引擎
 - 服务器代码在 `server/server.js` 中
+- `frontend/` 目录：预留的前端模块目录，目前仅用于 node_modules 存储
 
 ### WebSocket 消息格式
 
@@ -194,6 +205,7 @@ Docker 构建时会自动替换默认值为动态地址，无需手动配置。
 - `opponent_left`：对手离开
 - `opponent_disconnected`：对手掉线
 - `opponent_reconnected`：对手重连
+- `rejoined`：重连成功
 - `undo_request`：悔棋请求
 - `undo_accepted`：悔棋接受
 - `undo_rejected`：悔棋拒绝
@@ -227,6 +239,15 @@ AI 搜索深度和时间限制根据棋盘大小和难度动态调整：
 ### 依赖管理
 - 前端无依赖，纯原生 JavaScript
 - 后端依赖在 `server/package.json` 中管理
+
+### Git 忽略配置 (.gitignore)
+- `node_modules/`：Node.js 依赖目录
+- `*.log`：日志文件
+- `.idea/`, `.vscode/`：IDE 配置目录
+- `.env*`：环境变量文件
+- `dist/`, `build/`：构建输出目录
+- `*.swp`, `*.swo`：临时文件
+- `.DS_Store`, `Thumbs.db`：系统文件
 
 ## 核心功能实现
 
@@ -281,6 +302,9 @@ A: 目前不支持，房间码由服务器随机生成 6 位字符。
 
 ### Q: 如何部署到其他平台？
 A: 只要支持 WebSocket 的平台都可以部署，Docker 部署可直接使用，其他平台需要通过 URL 参数指定后端地址。
+
+### Q: frontend 目录是做什么用的？
+A: `frontend/` 目录是预留的前端模块目录，目前仅用于 node_modules 存储。项目采用单文件架构，前端代码全部在根目录的 `index.html` 中。
 
 
 ## 贡献指南
