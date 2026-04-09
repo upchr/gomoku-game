@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { useGameStore } from '@/stores/game';
 import type { Difficulty, Player } from '@/types/game';
+import AiWorker from '@/workers/ai-worker?worker';
 
 export function useAI() {
   const gameStore = useGameStore();
@@ -13,9 +14,8 @@ export function useAI() {
       if (gameStore.aiWorker) {
         gameStore.aiWorker.terminate();
       }
-      const workerUrl = new URL('./ai-worker.js', import.meta.url);
-      console.log('Worker URL:', workerUrl.href);
-      gameStore.aiWorker = new Worker(workerUrl);
+      console.log('创建 AI Worker...');
+      gameStore.aiWorker = new AiWorker();
       gameStore.aiWorker.onmessage = (e: MessageEvent) => {
         const result = e.data;
         if (result.requestId !== gameStore.currentAiRequestId) return;

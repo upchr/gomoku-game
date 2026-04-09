@@ -2,28 +2,93 @@
  * 五子棋 AI 引擎
  * 算法：Alpha-Beta 剪枝 + 迭代加深 + PVS（主变搜索）
  * 优化：Zobrist 置换表、历史启发、候选点剪枝
- * 纯 Vanilla JS 实现，无外部依赖
+ * 纯 TypeScript 实现，无外部依赖
  */
 
+// 类型定义
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Player = 1 | 2;
+
+export interface Position {
+  row: number;
+  col: number;
+}
+
+export interface Move extends Position {
+  score?: number;
+  attackScore?: number;
+  defenseScore?: number;
+}
+
+export interface SearchResult {
+  move: Position | null;
+  score: number;
+}
+
+export interface PatternScores {
+  FIVE: number;
+  LIVE_FOUR: number;
+  RUSH_FOUR: number;
+  LIVE_THREE: number;
+  SLEEP_THREE: number;
+  LIVE_TWO: number;
+  SLEEP_TWO: number;
+  JUMP_THREE: number;
+  JUMP_FOUR: number;
+}
+
+export interface DepthConfig {
+  min: number;
+  max: number;
+}
+
+export interface SearchStats {
+  nodes: number;
+  cutoffs: number;
+  cacheHits: number;
+  cacheMisses: number;
+  evaluations: number;
+  pieceCount?: number;
+  complexity?: number;
+}
+
+export interface Situation {
+  advantage: number;
+  advantageRatio: number;
+  myScore: number;
+  opponentScore: number;
+}
+
+export interface TranspositionEntry {
+  score: number;
+  depth: number;
+  flag: 'exact' | 'upper' | 'lower';
+  age: number;
+  pieceCount: number;
+}
+
 // LRU 缓存类（用于置换表）
-class LRUCache {
-  constructor(maxSize) {
+class LRUCache<K, V> {
+  private maxSize: number;
+  private cache: Map<K, V>;
+
+  constructor(maxSize: number) {
     this.maxSize = maxSize;
     this.cache = new Map();
   }
 
-  get(key) {
+  get(key: K): V | undefined {
     if (!this.cache.has(key)) {
       return undefined;
     }
     // 移动到最前面（标记为最近使用）
-    const value = this.cache.get(key);
+    const value = this.cache.get(key)!;
     this.cache.delete(key);
     this.cache.set(key, value);
     return value;
   }
 
-  set(key, value) {
+  set(key: K, value: V): void {
     // 如果已存在，删除旧的
     if (this.cache.has(key)) {
       this.cache.delete(key);
@@ -37,30 +102,49 @@ class LRUCache {
     }
   }
 
-  has(key) {
+  has(key: K): boolean {
     return this.cache.has(key);
   }
 
-  delete(key) {
+  delete(key: K): boolean {
     return this.cache.delete(key);
   }
 
-  get size() {
+  get size(): number {
     return this.cache.size;
   }
 
-  clear() {
+  clear(): void {
     this.cache.clear();
   }
 
-  // 为了兼容旧代码的迭代
-  forEach(callback) {
+  forEach(callback: (value: V, key: K, map: Map<K, V>) => void): void {
     this.cache.forEach(callback);
   }
 }
 
-class GomokuAI {
-  constructor(difficulty = 'medium', boardSize = 15) {
+export class GomokuAI {
+  public difficulty: Difficulty;
+  public size: number;
+  public depthConfig: DepthConfig;
+  public timeLimitConfig: number;
+  public zobrist: (bigint | bigint)[][];
+  public maxTableSize: number;
+  public transpositionTable: LRUCache<string, TranspositionEntry>;
+  public historyTable: number[][];
+  public nodeCount: number;
+  public startTime: number;
+  public timeLimit: number;
+  public tableAge: number;
+  public searchStats: SearchStats;
+  public positionWeight: number[][];
+  public patternScores: PatternScores;
+  public defenseMultiplier: number;
+  public directions: number[][];
+  public openingBook: any;
+  public depthMap: any;
+
+  constructor(difficulty: Difficulty = 'medium', boardSize: number = 15) {
     this.difficulty = difficulty;
     this.size = boardSize;
     
@@ -127,11 +211,11 @@ class GomokuAI {
   }
   
   // 根据难度获取防守权重倍数
-  getDefenseMultiplier(difficulty) {
+  getDefenseMultiplier(difficulty: Difficulty): number {
     // 简单：防守权重适中，攻守平衡
     // 中等：防守权重较高，更注重防守
     // 困难：防守权重很高，非常注重防守
-    const multiplierMap = {
+    const multiplierMap: Record<Difficulty, number> = {
       'easy': 0.9,
       'medium': 1.1,
       'hard': 1.3
@@ -140,7 +224,7 @@ class GomokuAI {
   }
   
   // 计算当前局势（返回优势/劣势评分）
-  evaluateSituation(board, player) {
+  evaluateSituation(board: number[][], player: Player): Situation {
     let myScore = 0;
     let opponentScore = 0;
     const opponent = 3 - player;
@@ -176,7 +260,7 @@ class GomokuAI {
   }
   
   // 根据局势动态调整防守权重
-  getDynamicDefenseMultiplier(board, player) {
+  getDynamicDefenseMultiplier(board: number[][], player: Player): number {
     const situation = this.evaluateSituation(board, player);
     const complexity = this.countPieces(board) / (this.size * this.size);
     
@@ -186,40 +270,34 @@ class GomokuAI {
     if (situation.advantageRatio > 0.3) {
       // 明显优势：降低防守权重，加强进攻
       dynamicMultiplier *= 0.7;
-      // console.log('AI: 明显优势，加强进攻', { advantageRatio: situation.advantageRatio.toFixed(2) });
     } else if (situation.advantageRatio > 0.1) {
       // 轻微优势：略微降低防守权重
       dynamicMultiplier *= 0.9;
-      // console.log('AI: 轻微优势，偏向进攻', { advantageRatio: situation.advantageRatio.toFixed(2) });
     } else if (situation.advantageRatio < -0.3) {
       // 明显劣势：大幅提高防守权重，加强防守
       dynamicMultiplier *= 1.5;
-      // console.log('AI: 明显劣势，加强防守', { advantageRatio: situation.advantageRatio.toFixed(2) });
     } else if (situation.advantageRatio < -0.1) {
       // 轻微劣势：略微提高防守权重
       dynamicMultiplier *= 1.2;
-      // console.log('AI: 轻微劣势，偏向防守', { advantageRatio: situation.advantageRatio.toFixed(2) });
     }
     
     // 根据游戏阶段调整
     if (complexity > 0.8) {
       // 终局阶段：进一步提高防守权重
       dynamicMultiplier *= 1.2;
-      // console.log('AI: 终局阶段，提高防守权重');
     } else if (complexity < 0.2) {
       // 开局阶段：略微降低防守权重
       dynamicMultiplier *= 0.9;
-      // console.log('AI: 开局阶段，降低防守权重');
     }
     
     return dynamicMultiplier;
   }
   
   // 根据棋盘大小和难度获取搜索深度配置
-  getDepthConfig(difficulty, boardSize) {
+  getDepthConfig(difficulty: Difficulty, boardSize: number): DepthConfig {
     // 小棋盘分支因子小，可以搜索更深
     // 大棋盘分支因子大，需要限制深度
-    const depthMap = {
+    const depthMap: Record<number, Record<Difficulty, DepthConfig>> = {
       13: {
         'easy': { min: 3, max: 4 },
         'medium': { min: 5, max: 6 },
@@ -240,10 +318,10 @@ class GomokuAI {
   }
   
   // 根据棋盘大小和难度获取时间限制
-  getTimeLimitConfig(difficulty, boardSize) {
+  getTimeLimitConfig(difficulty: Difficulty, boardSize: number): number {
     // 大棋盘需要更多思考时间
     // 提高简单模式的时间限制，确保 AI 有足够时间防守
-    const timeMap = {
+    const timeMap: Record<number, Record<Difficulty, number>> = {
       13: {
         'easy': 500,
         'medium': 800,
@@ -264,7 +342,7 @@ class GomokuAI {
   }
   
   // 初始化开局库
-  initOpeningBook() {
+  initOpeningBook(): any {
     return {
       // 空棋盘，下天元
       'empty': { row: 7, col: 7 },
@@ -354,7 +432,7 @@ class GomokuAI {
   }
   
   // 检查是否可以使用开局库
-  checkOpeningBook(board, player) {
+  checkOpeningBook(board: number[][], player: Player): Position | null {
     const totalPieces = this.countPieces(board);
     
     // 空棋盘，下天元
@@ -408,7 +486,7 @@ class GomokuAI {
   }
   
   // 查找定式走法
-  findBookMove(board, player) {
+  findBookMove(board: number[][], player: Player): Position | null {
     const totalPieces = this.countPieces(board);
 
     // 只在前 8 步使用定式
@@ -467,7 +545,7 @@ class GomokuAI {
   }
   
   // 统计棋子数量
-  countPieces(board) {
+  countPieces(board: number[][]): number {
     let count = 0;
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
@@ -478,8 +556,8 @@ class GomokuAI {
   }
   
   // 创建二维数组
-  createArray2D(fill = 0) {
-    const arr = [];
+  createArray2D(fill: number = 0): number[][] {
+    const arr: number[][] = [];
     for (let i = 0; i < this.size; i++) {
       arr[i] = new Array(this.size).fill(fill);
     }
@@ -487,8 +565,8 @@ class GomokuAI {
   }
   
   // 初始化 Zobrist 哈希表
-  initZobrist() {
-    const table = [];
+  initZobrist(): (bigint | bigint)[][] {
+    const table: (bigint | bigint)[][] = [];
     for (let i = 0; i < this.size; i++) {
       table[i] = [];
       for (let j = 0; j < this.size; j++) {
@@ -499,7 +577,7 @@ class GomokuAI {
   }
   
   // 生成随机 64 位大整数
-  randomBigInt() {
+  randomBigInt(): bigint {
     const arr = new Uint32Array(2);
     // 使用 crypto API（浏览器/Node.js 通用）
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -513,8 +591,8 @@ class GomokuAI {
   }
   
   // 创建位置权重矩阵
-  createPositionWeight() {
-    const weight = [];
+  createPositionWeight(): number[][] {
+    const weight: number[][] = [];
     const center = Math.floor(this.size / 2);
     for (let i = 0; i < this.size; i++) {
       weight[i] = [];
@@ -531,12 +609,12 @@ class GomokuAI {
   
   /**
    * 获取最佳走法
-   * @param {number[][]} board - 15x15 棋盘，0=空，1=黑，2=白
-   * @param {number} player - 当前玩家，1=黑，2=白
-   * @param {number} timeLimit - 时间限制（毫秒），可选
-   * @returns {{row: number, col: number}} - 最佳走法
+   * @param board - 15x15 棋盘，0=空，1=黑，2=白
+   * @param player - 当前玩家，1=黑，2=白
+   * @param timeLimit - 时间限制（毫秒），可选
+   * @returns - 最佳走法
    */
-  getBestMove(board, player, timeLimit = null) {
+  getBestMove(board: number[][], player: Player, timeLimit: number | null = null): Position | null {
     // 输入验证
     if (!board || !Array.isArray(board) || board.length === 0) {
       throw new Error('Invalid board: board is null or empty');
@@ -569,191 +647,191 @@ class GomokuAI {
     };
     
     try {
-    // 动态调整时间限制：开局和终局给更多时间，中局给较少时间
-    let adjustedTimeLimit = timeLimit || this.timeLimitConfig || 1000;
-    
-    if (complexity < 0.1) {
-      // 开局阶段（棋子少于10%）：使用标准时间限制
-    } else if (complexity < 0.25) {
-      // 早期（10%-25%）：增加30%时间
-      adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.3);
-    } else if (complexity < 0.6) {
-      // 中期（25%-60%）：减少20%时间
-      adjustedTimeLimit = Math.floor(adjustedTimeLimit * 0.8);
-    } else if (complexity < 0.8) {
-      // 中后期（60%-80%）：增加30%时间
-      adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.3);
-    } else {
-      // 终局（80%+）：增加50%时间
-      adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.5);
-    }
-    
-    this.timeLimit = adjustedTimeLimit;
-    this.startTime = Date.now();
-    this.nodeCount = 0;
-    this.tableAge++;
-    
-    // 清理过旧的置换表项
-    if (this.transpositionTable.size > this.maxTableSize) {
-      this.cleanTranspositionTable();
-    }
-    
-    // 重置历史启发表
-    this.historyTable = this.createArray2D(0);
-    
-    // 检查开局库（前10步）
-    const bookMove = this.checkOpeningBook(board, player);
-    if (bookMove) {
-      console.log('AI: 使用开局库', bookMove);
-      return bookMove;
-    }
-    
-    // 终局优化：棋子超过70%时，使用更深搜索
-    if (complexity > 0.7) {
-      this.depthConfig.max += 1;
-      console.log('AI: 终局阶段，增加搜索深度', { newMax: this.depthConfig.max });
-    }
+      // 动态调整时间限制：开局和终局给更多时间，中局给较少时间
+      let adjustedTimeLimit = timeLimit || this.timeLimitConfig || 1000;
+      
+      if (complexity < 0.1) {
+        // 开局阶段（棋子少于10%）：使用标准时间限制
+      } else if (complexity < 0.25) {
+        // 早期（10%-25%）：增加30%时间
+        adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.3);
+      } else if (complexity < 0.6) {
+        // 中期（25%-60%）：减少20%时间
+        adjustedTimeLimit = Math.floor(adjustedTimeLimit * 0.8);
+      } else if (complexity < 0.8) {
+        // 中后期（60%-80%）：增加30%时间
+        adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.3);
+      } else {
+        // 终局（80%+）：增加50%时间
+        adjustedTimeLimit = Math.floor(adjustedTimeLimit * 1.5);
+      }
+      
+      this.timeLimit = adjustedTimeLimit;
+      this.startTime = Date.now();
+      this.nodeCount = 0;
+      this.tableAge++;
+      
+      // 清理过旧的置换表项
+      if (this.transpositionTable.size > this.maxTableSize) {
+        this.cleanTranspositionTable();
+      }
+      
+      // 重置历史启发表
+      this.historyTable = this.createArray2D(0);
+      
+      // 检查开局库（前10步）
+      const bookMove = this.checkOpeningBook(board, player);
+      if (bookMove) {
+        console.log('AI: 使用开局库', bookMove);
+        return bookMove;
+      }
+      
+      // 终局优化：棋子超过70%时，使用更深搜索
+      if (complexity > 0.7) {
+        this.depthConfig.max += 1;
+        console.log('AI: 终局阶段，增加搜索深度', { newMax: this.depthConfig.max });
+      }
 
-    // 终局多重威胁检测
-    if (complexity > 0.7) {
-      const multipleThreats = this.detectMultipleThreats(board, player);
-      if (multipleThreats.length > 0) {
-        console.log('AI: 终局检测到多重威胁', multipleThreats.slice(0, 5));
-        // 如果有必胜走法（活四或冲四），直接返回
-        const winningThreat = multipleThreats.find(t =>
-          t.attackScore >= this.patternScores.LIVE_FOUR || t.attackScore >= this.patternScores.RUSH_FOUR
-        );
-        if (winningThreat) {
-          console.log('AI: 终局找到必胜走法', winningThreat);
-          return winningThreat;
-        }
-        // 如果有必须防守的走法，优先返回
-        const defenseThreat = multipleThreats.find(t => t.defenseScore >= this.patternScores.LIVE_FOUR);
-        if (defenseThreat) {
-          console.log('AI: 终局必须防守', defenseThreat);
-          return defenseThreat;
+      // 终局多重威胁检测
+      if (complexity > 0.7) {
+        const multipleThreats = this.detectMultipleThreats(board, player);
+        if (multipleThreats.length > 0) {
+          console.log('AI: 终局检测到多重威胁', multipleThreats.slice(0, 5));
+          // 如果有必胜走法（活四或冲四），直接返回
+          const winningThreat = multipleThreats.find(t =>
+            t.attackScore >= this.patternScores.LIVE_FOUR || t.attackScore >= this.patternScores.RUSH_FOUR
+          );
+          if (winningThreat) {
+            console.log('AI: 终局找到必胜走法', winningThreat);
+            return winningThreat;
+          }
+          // 如果有必须防守的走法，优先返回
+          const defenseThreat = multipleThreats.find(t => t.defenseScore >= this.patternScores.LIVE_FOUR);
+          if (defenseThreat) {
+            console.log('AI: 终局必须防守', defenseThreat);
+            return defenseThreat;
+          }
         }
       }
-    }
 
-    // 调试：检查对手威胁
-    const opponent = 3 - player;
-    const opponentThreats = this.checkThreats(board, opponent);
-    if (opponentThreats.length > 0) {
-      console.log('AI: 检测到对手威胁', opponentThreats);
-    }
-    
-    let bestMove = null;
-    let bestScore = -Infinity;
-    
-    // 迭代加深搜索
-    for (let depth = 2; depth <= this.depthConfig.max; depth += 2) {
-      // 时间检查：确保有足够时间完成当前深度的搜索
-      // 预估剩余时间：当前已用时间 + 预估当前深度所需时间
-      const elapsedTime = Date.now() - this.startTime;
-      const remainingTime = this.timeLimit - elapsedTime;
-      
-      // 如果剩余时间不足，停止迭代
-      // 使用保守估计：剩余时间需要大于当前时间限制的20%
-      if (remainingTime < this.timeLimit * 0.2) {
-        console.log('AI: 时间不足，停止迭代加深', { depth, remainingTime });
-        break;
+      // 调试：检查对手威胁
+      const opponent = 3 - player;
+      const opponentThreats = this.checkThreats(board, opponent);
+      if (opponentThreats.length > 0) {
+        console.log('AI: 检测到对手威胁', opponentThreats);
       }
       
-      // 如果已用时间超过80%，停止迭代
-      if (elapsedTime > this.timeLimit * 0.8) {
-        console.log('AI: 时间已用80%，停止迭代加深', { depth, elapsedTime });
-        break;
-      }
+      let bestMove: Position | null = null;
+      let bestScore = -Infinity;
       
-      const result = this.searchRoot(board, player, depth);
-      
-      if (result && result.move) {
-        bestMove = result.move;
-        bestScore = result.score;
+      // 迭代加深搜索
+      for (let depth = 2; depth <= this.depthConfig.max; depth += 2) {
+        // 时间检查：确保有足够时间完成当前深度的搜索
+        // 预估剩余时间：当前已用时间 + 预估当前深度所需时间
+        const elapsedTime = Date.now() - this.startTime;
+        const remainingTime = this.timeLimit - elapsedTime;
         
-        // 找到必胜走法，直接返回
-        if (bestScore >= this.patternScores.FIVE) {
+        // 如果剩余时间不足，停止迭代
+        // 使用保守估计：剩余时间需要大于当前时间限制的20%
+        if (remainingTime < this.timeLimit * 0.2) {
+          console.log('AI: 时间不足，停止迭代加深', { depth, remainingTime });
+          break;
+        }
+        
+        // 如果已用时间超过80%，停止迭代
+        if (elapsedTime > this.timeLimit * 0.8) {
+          console.log('AI: 时间已用80%，停止迭代加深', { depth, elapsedTime });
+          break;
+        }
+        
+        const result = this.searchRoot(board, player, depth);
+        
+        if (result && result.move) {
+          bestMove = result.move;
+          bestScore = result.score;
+          
+          // 找到必胜走法，直接返回
+          if (bestScore >= this.patternScores.FIVE) {
+            break;
+          }
+        }
+        
+        // 达到配置的最大深度
+        if (depth >= this.depthConfig.max) {
           break;
         }
       }
       
-      // 达到配置的最大深度
-      if (depth >= this.depthConfig.max) {
-        break;
-      }
-    }
-    
-    // 添加随机性：只在以下条件满足时才考虑随机选择
-    // 1. 非开局阶段（complexity > 0.15）
-    // 2. 非终局阶段（complexity < 0.75）
-    // 3. 非紧急情况（bestScore < 活四）
-    // 4. 非困难难度（困难模式不启用随机性）
-    // 5. 优势不明显（|advantageRatio| < 0.2）
-    if (bestMove && complexity > 0.15 && complexity < 0.75 && 
-        bestScore < this.patternScores.LIVE_FOUR && this.difficulty !== 'hard') {
-      
-      const situation = this.evaluateSituation(board, player);
-      if (Math.abs(situation.advantageRatio) < 0.2) {
-        const candidates = [];
-        const scoreTolerance = bestScore * 0.03; // 降低容差到 3%
+      // 添加随机性：只在以下条件满足时才考虑随机选择
+      // 1. 非开局阶段（complexity > 0.15）
+      // 2. 非终局阶段（complexity < 0.75）
+      // 3. 非紧急情况（bestScore < 活四）
+      // 4. 非困难难度（困难模式不启用随机性）
+      // 5. 优势不明显（|advantageRatio| < 0.2）
+      if (bestMove && complexity > 0.15 && complexity < 0.75 && 
+          bestScore < this.patternScores.LIVE_FOUR && this.difficulty !== 'hard') {
         
-        // 重新评估所有候选走法，找到分数接近的走法
-        const allMoves = this.getCandidateMoves(board);
-        for (const move of allMoves) {
-          board[move.row][move.col] = player;
-          const score = this.evaluatePoint(board, move.row, move.col, player, true);
-          board[move.row][move.col] = 0;
+        const situation = this.evaluateSituation(board, player);
+        if (Math.abs(situation.advantageRatio) < 0.2) {
+          const candidates: Position[] = [];
+          const scoreTolerance = bestScore * 0.03; // 降低容差到 3%
           
-          if (Math.abs(score - bestScore) <= scoreTolerance) {
-            candidates.push(move);
-          }
-        }
-        
-        // 如果有多个候选，随机选择
-        if (candidates.length > 1) {
-          bestMove = candidates[Math.floor(Math.random() * candidates.length)];
-          console.log('AI: 在多个相近走法中随机选择', { count: candidates.length });
-        }
-      }
-    }
-    
-    // 如果没有找到走法，下在中心
-    if (!bestMove) {
-      const center = Math.floor(this.size / 2);
-      // 检查中心是否被占用
-      if (board[center][center] === 0) {
-        bestMove = { row: center, col: center };
-      } else {
-        // 找一个空位
-        for (let i = 0; i < this.size; i++) {
-          for (let j = 0; j < this.size; j++) {
-            if (board[i][j] === 0) {
-              bestMove = { row: i, col: j };
-              break;
+          // 重新评估所有候选走法，找到分数接近的走法
+          const allMoves = this.getCandidateMoves(board);
+          for (const move of allMoves) {
+            board[move.row][move.col] = player;
+            const score = this.evaluatePoint(board, move.row, move.col, player, true);
+            board[move.row][move.col] = 0;
+            
+            if (Math.abs(score - bestScore) <= scoreTolerance) {
+              candidates.push(move);
             }
           }
-          if (bestMove) break;
+          
+          // 如果有多个候选，随机选择
+          if (candidates.length > 1) {
+            bestMove = candidates[Math.floor(Math.random() * candidates.length)];
+            console.log('AI: 在多个相近走法中随机选择', { count: candidates.length });
+          }
         }
       }
-    }
-    
-    // 输出搜索统计
-    const searchTime = Date.now() - this.startTime;
-    console.log('AI: 搜索完成', {
-      move: bestMove,
-      time: `${searchTime}ms`,
-      stats: {
-        nodes: this.searchStats.nodes,
-        cutoffs: this.searchStats.cutoffs,
-        cacheHits: this.searchStats.cacheHits,
-        cacheMisses: this.searchStats.cacheMisses,
-        evaluations: this.searchStats.evaluations
+      
+      // 如果没有找到走法，下在中心
+      if (!bestMove) {
+        const center = Math.floor(this.size / 2);
+        // 检查中心是否被占用
+        if (board[center][center] === 0) {
+          bestMove = { row: center, col: center };
+        } else {
+          // 找一个空位
+          for (let i = 0; i < this.size; i++) {
+            for (let j = 0; j < this.size; j++) {
+              if (board[i][j] === 0) {
+                bestMove = { row: i, col: j };
+                break;
+              }
+            }
+            if (bestMove) break;
+          }
+        }
       }
-    });
-    
-    return bestMove;
-    
+      
+      // 输出搜索统计
+      const searchTime = Date.now() - this.startTime;
+      console.log('AI: 搜索完成', {
+        move: bestMove,
+        time: `${searchTime}ms`,
+        stats: {
+          nodes: this.searchStats.nodes,
+          cutoffs: this.searchStats.cutoffs,
+          cacheHits: this.searchStats.cacheHits,
+          cacheMisses: this.searchStats.cacheMisses,
+          evaluations: this.searchStats.evaluations
+        }
+      });
+      
+      return bestMove;
+      
     } catch (err) {
       console.error('AI: 搜索出错', err);
       // 降级策略：返回中心点
@@ -763,8 +841,8 @@ class GomokuAI {
   }
   
   // 检查对手威胁（用于调试）
-  checkThreats(board, player) {
-    const threats = [];
+  checkThreats(board: number[][], player: Player): Array<{ row: number; col: number; score: number; type: string }> {
+    const threats: Array<{ row: number; col: number; score: number; type: string }> = [];
 
     // 优化：只扫描候选点而不是整个棋盘
     const candidates = this.getCandidateMoves(board);
@@ -776,7 +854,12 @@ class GomokuAI {
       board[move.row][move.col] = 0;
 
       if (score >= this.patternScores.LIVE_THREE) {
-        threats.push({ row: move.row, col: move.col, score, type: score >= this.patternScores.LIVE_FOUR ? 'LIVE_FOUR' : score >= this.patternScores.RUSH_FOUR ? 'RUSH_FOUR' : 'LIVE_THREE' });
+        threats.push({ 
+          row: move.row, 
+          col: move.col, 
+          score, 
+          type: score >= this.patternScores.LIVE_FOUR ? 'LIVE_FOUR' : score >= this.patternScores.RUSH_FOUR ? 'RUSH_FOUR' : 'LIVE_THREE' 
+        });
       }
     }
 
@@ -784,8 +867,8 @@ class GomokuAI {
   }
 
   // 检测终局时的多重威胁
-  detectMultipleThreats(board, player) {
-    const threats = [];
+  detectMultipleThreats(board: number[][], player: Player): Array<{ row: number; col: number; attackScore: number; defenseScore: number; isAttack: boolean; isDefense: boolean }> {
+    const threats: Array<{ row: number; col: number; attackScore: number; defenseScore: number; isAttack: boolean; isDefense: boolean }> = [];
     const complexity = this.countPieces(board) / (this.size * this.size);
 
     // 只在终局阶段检测（棋子超过70%）
@@ -834,7 +917,7 @@ class GomokuAI {
   // ========== 搜索算法 ==========
   
   // 根节点搜索
-  searchRoot(board, player, depth) {
+  searchRoot(board: number[][], player: Player, depth: number): SearchResult {
     const moves = this.getCandidateMoves(board);
     
     if (moves.length === 0) {
@@ -865,7 +948,7 @@ class GomokuAI {
     
     // 关键修复：检查是否有必须防守的走法（对手有活四或冲四）
     const opponent = 3 - player;
-    let criticalDefenseMove = null;
+    let criticalDefenseMove: Move | null = null;
     
     for (const move of moves) {
       board[move.row][move.col] = opponent;
@@ -887,7 +970,7 @@ class GomokuAI {
       moves.unshift(criticalDefenseMove);
     }
     
-    let bestMove = null;
+    let bestMove: Position | null = null;
     let bestScore = -Infinity;
     let alpha = -Infinity;
     const beta = Infinity;
@@ -911,7 +994,7 @@ class GomokuAI {
       currentHash = currentHash ^ this.zobrist[move.row][move.col][player];
       
       // PVS 搜索
-      let score;
+      let score: number;
       if (i === 0) {
         score = -this.pvs(board, depth - 1, -beta, -alpha, 3 - player, currentHash);
       } else {
@@ -941,7 +1024,7 @@ class GomokuAI {
   }
   
   // PVS（主变搜索）
-  pvs(board, depth, alpha, beta, player, hash) {
+  pvs(board: number[][], depth: number, alpha: number, beta: number, player: Player, hash: bigint): number {
     this.nodeCount++;
     this.searchStats.nodes++;  // 记录节点数
 
@@ -999,7 +1082,7 @@ class GomokuAI {
     this.sortMoves(moves);
     
     let bestScore = -Infinity;
-    let flag = 'upper';
+    let flag: 'exact' | 'upper' | 'lower' = 'upper';
     
     for (let i = 0; i < moves.length; i++) {
       const move = moves[i];
@@ -1008,7 +1091,7 @@ class GomokuAI {
       board[move.row][move.col] = player;
       const newHash = hash ^ this.zobrist[move.row][move.col][player];
       
-      let score;
+      let score: number;
       if (i === 0) {
         score = -this.pvs(board, depth - 1, -beta, -alpha, 3 - player, newHash);
       } else {
@@ -1057,9 +1140,9 @@ class GomokuAI {
   // ========== 走法生成与排序 ==========
   
   // 获取候选走法（曼哈顿距离 ≤ 2）
-  getCandidateMoves(board) {
-    const moves = [];
-    const visited = new Set();
+  getCandidateMoves(board: number[][]): Move[] {
+    const moves: Move[] = [];
+    const visited = new Set<number>();
     
     // 使用缓存的棋子数量（如果存在）
     const pieceCount = this.searchStats?.pieceCount || this.countPieces(board);
@@ -1080,19 +1163,19 @@ class GomokuAI {
               const distance = isEndgame 
                 ? Math.sqrt(di*di + dj*dj) 
                 : Math.abs(di) + Math.abs(dj);
-              
+
               if (distance > searchDistance) continue;
-              
+
               const ni = i + di;
               const nj = j + dj;
               const key = ni * this.size + nj;
-              
+
               // 检查边界和是否已访问
               if (ni >= 0 && ni < this.size && nj >= 0 && nj < this.size &&
                   board[ni][nj] === 0 && !visited.has(key)) {
                 visited.add(key);
                 moves.push({ row: ni, col: nj });
-                
+
                 // 早期退出：如果候选点已经够多，停止搜索
                 if (moves.length >= maxMoves) {
                   break;
@@ -1107,20 +1190,20 @@ class GomokuAI {
       }
       if (moves.length >= maxMoves) break;
     }
-    
+
     // 如果棋盘为空，返回中心点
     if (moves.length === 0) {
       const center = Math.floor(this.size / 2);
       moves.push({ row: center, col: center });
     }
-    
+
     return moves;
   }
   
   // 快速评估走法
-  evaluateMoves(moves, board, player) {
+  evaluateMoves(moves: Move[], board: number[][], player: Player): void {
     const opponent = 3 - player;
-    let highDefenseMoves = []; // 高防守权重的走法
+    let highDefenseMoves: Move[] = []; // 高防守权重的走法
 
     // 获取动态防守权重（基于局势）
     const dynamicDefenseMultiplier = this.getDynamicDefenseMultiplier(board, player);
@@ -1135,65 +1218,64 @@ class GomokuAI {
       board[move.row][move.col] = opponent;
       const defenseScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
       board[move.row][move.col] = 0;
-      
+
       // 基础分数：进攻 - 防守（防守分数乘以动态权重）
       move.score = attackScore - (defenseScore * dynamicDefenseMultiplier);
       move.attackScore = attackScore;
       move.defenseScore = defenseScore;
-      
+
       // 关键修复：对高威胁棋型给予额外防守权重
       // 如果对手有活四（LIVE_FOUR），必须防守，权重最高
       if (defenseScore >= this.patternScores.LIVE_FOUR) {
-        move.score += 300000;  // 强制防守
+        move.score! += 300000;  // 强制防守
         highDefenseMoves.push({ ...move, reason: 'LIVE_FOUR' });
       }
       // 如果对手有冲四（RUSH_FOUR），需要防守
       else if (defenseScore >= this.patternScores.RUSH_FOUR) {
-        move.score += 80000;
+        move.score! += 80000;
         highDefenseMoves.push({ ...move, reason: 'RUSH_FOUR' });
       }
       // 如果对手有活三（LIVE_THREE），需要防守
       else if (defenseScore >= this.patternScores.LIVE_THREE) {
-        move.score += 15000;
+        move.score! += 15000;
         highDefenseMoves.push({ ...move, reason: 'LIVE_THREE' });
       }
-      
+
       // 加上位置权重
-      move.score += this.positionWeight[move.row][move.col];
+      move.score! += this.positionWeight[move.row][move.col];
     }
-    
+
     // 如果有高防守权重的走法，输出调试信息
     if (highDefenseMoves.length > 0) {
       console.log('AI: 检测到高防守权重走法', highDefenseMoves.map(m => ({
-        row: m.row, col: m.col, reason: m.reason, defenseScore: m.defenseScore, finalScore: m.score
+        row: m.row, col: m.col, reason: (m as any).reason, defenseScore: m.defenseScore, finalScore: m.score
       })));
     }
-    
+
     // 按分数降序排序
-    moves.sort((a, b) => b.score - a.score);
+    moves.sort((a, b) => (b.score || 0) - (a.score || 0));
 
     // 只保留前 30 个最有希望的走法（进一步剪枝，从 20 增加到 30）
     if (moves.length > 30) {
-      return moves.slice(0, 30);
+      moves.splice(30);
     }
-    return moves;
   }
   
   // 排序走法（历史启发 + 位置权重）
-  sortMoves(moves) {
+  sortMoves(moves: Move[]): void {
     moves.sort((a, b) => {
       // 历史启发优先
       const histA = this.historyTable[a.row][a.col];
       const histB = this.historyTable[b.row][b.col];
-      
+
       if (histA !== histB) {
         return histB - histA;
       }
-      
+
       // 位置权重次之
       const posA = this.positionWeight[a.row][a.col];
       const posB = this.positionWeight[b.row][b.col];
-      
+
       return posB - posA;
     });
   }
@@ -1201,7 +1283,7 @@ class GomokuAI {
   // ========== 评估函数 ==========
   
   // 评估棋盘
-  evaluate(board, player) {
+  evaluate(board: number[][], player: Player): number {
     let score = 0;
 
     // 获取动态防守权重（基于局势）
@@ -1224,9 +1306,9 @@ class GomokuAI {
   }
   
   // 评估单个点
-  evaluatePoint(board, row, col, player, includeCombos = true) {
+  evaluatePoint(board: number[][], row: number, col: number, player: Player, includeCombos: boolean = true): number {
     let score = 0;
-    let patterns = [];
+    const patterns: Array<{ count: number; open: number; score: number }> = [];
 
     for (const [dx, dy] of this.directions) {
       const result = this.countLine(board, row, col, dx, dy, player);
@@ -1252,7 +1334,7 @@ class GomokuAI {
   }
   
   // 评估组合棋型（双活三、冲四活三等）
-  evaluateCombinations(patterns) {
+  evaluateCombinations(patterns: Array<{ count: number; open: number; score: number }>): number {
     let bonus = 0;
 
     // 统计各种棋型数量
@@ -1285,13 +1367,13 @@ class GomokuAI {
   }
 
   // 检测跳棋型（跳三、跳四）
-  detectJumpPatterns(board, row, col, player) {
+  detectJumpPatterns(board: number[][], row: number, col: number, player: Player): { jumpThree: number; jumpFour: number } {
     let jumpThree = 0;
     let jumpFour = 0;
 
     for (const [dx, dy] of this.directions) {
       // 获取这个方向上以 (row, col) 为中心的所有点（9个点）
-      const line = [];
+      const line: Array<{ row: number; col: number; value: number }> = [];
       for (let i = -4; i <= 4; i++) {
         const ni = row + i * dx;
         const nj = col + i * dy;
@@ -1301,20 +1383,20 @@ class GomokuAI {
       }
 
       const centerIndex = 4; // 中心点索引（当前落子位置）
-      
+
       // 检测跳棋型：在一条线上检测是否有连续的棋子中间有空位
       // 跳三模式：●○●○●（两个棋子，中间一个空位）或 ●●○●（两个棋子连续）
       // 跳四模式：●○●○●○（三个棋子，中间有空位）或 ●●○●○ 等
-      
+
       // 从中心点向两边扩展，检测跳棋型
       for (let start = 0; start <= 8; start++) {
         // 检查从start开始的5个位置是否能形成跳棋型
         if (start + 4 >= line.length) break;
-        
+
         let pieceCount = 0;
         let gapCount = 0;
         let hasCurrentPiece = false;
-        
+
         // 统计这5个位置的棋子数和空位数
         for (let i = 0; i < 5; i++) {
           const idx = start + i;
@@ -1328,23 +1410,23 @@ class GomokuAI {
             break;
           }
         }
-        
+
         // 如果提前break，说明有对方棋子，跳过
         if (pieceCount === 0 && gapCount < 5) continue;
-        
+
         // 必须包含当前落子
         if (!hasCurrentPiece) continue;
-        
+
         // 检查是否是跳棋型（有空位且棋子数足够）
         if (gapCount >= 1 && pieceCount >= 2) {
           // 检查两端是否开放（用于判断是否是活跳棋型）
           let openEnds = 0;
           const leftOpen = start > 0 && line[start - 1].value === 0;
           const rightOpen = start + 4 < line.length - 1 && line[start + 5].value === 0;
-          
+
           if (leftOpen) openEnds++;
           if (rightOpen) openEnds++;
-          
+
           // 至少一端开放才算有效的跳棋型
           if (openEnds >= 1) {
             if (pieceCount === 2) {
@@ -1361,7 +1443,7 @@ class GomokuAI {
   }
   
   // 统计一条线上的棋子
-  countLine(board, row, col, dx, dy, player) {
+  countLine(board: number[][], row: number, col: number, dx: number, dy: number, player: Player): { count: number; open: number } {
     let count = 1;
     let open = 0;
 
@@ -1410,33 +1492,33 @@ class GomokuAI {
   }
   
   // 根据棋型获取分数
-  getPatternScore(count, open) {
+  getPatternScore(count: number, open: number): number {
     if (count >= 5) {
       return this.patternScores.FIVE;
     }
-    
+
     if (count === 4) {
       if (open === 2) return this.patternScores.LIVE_FOUR;
       if (open === 1) return this.patternScores.RUSH_FOUR;
     }
-    
+
     if (count === 3) {
       if (open === 2) return this.patternScores.LIVE_THREE;
       if (open === 1) return this.patternScores.SLEEP_THREE;
     }
-    
+
     if (count === 2) {
       if (open === 2) return this.patternScores.LIVE_TWO;
       if (open === 1) return this.patternScores.SLEEP_TWO;
     }
-    
+
     return 0;
   }
   
   // ========== 辅助函数 ==========
   
   // 检查胜利
-  checkWin(board, player) {
+  checkWin(board: number[][], player: Player): boolean {
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
         if (board[i][j] === player) {
@@ -1463,7 +1545,7 @@ class GomokuAI {
   }
   
   // 计算 Zobrist 哈希
-  calculateHash(board) {
+  calculateHash(board: number[][]): bigint {
     let hash = 0n;
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
@@ -1476,7 +1558,7 @@ class GomokuAI {
   }
   
   // 清理置换表（LRU 缓存会自动管理，这里只是定期重置 age）
-  cleanTranspositionTable() {
+  cleanTranspositionTable(): void {
     // LRU 缓存会自动管理大小，不需要手动清理
     // 这里保留函数接口以保持兼容性
   }
