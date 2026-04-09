@@ -601,8 +601,7 @@ function setupWSMessageHandler() {
         boardReadyStatusVisible.value = true;
 
         // 检查比赛是否结束，如果结束则清理房间信息
-        const targetWins = Math.ceil(gameStore.matchMode / 2);
-        if (gameStore.matchWins[1] >= targetWins || gameStore.matchWins[2] >= targetWins) {
+        if (gameStore.matchWins[1] >= Math.ceil(gameStore.matchMode / 2) || gameStore.matchWins[2] >= Math.ceil(gameStore.matchMode / 2)) {
           wsStore.clearRoomInfo();
         }
         break;
@@ -725,8 +724,7 @@ function setupWSMessageHandler() {
           gameStore.currentRound = data.currentRound;
         }
 
-        const targetWins = Math.ceil(gameStore.matchMode / 2);
-        gameStore.matchEnded = gameStore.matchWins[1] >= targetWins || gameStore.matchWins[2] >= targetWins;
+        gameStore.matchEnded = gameStore.matchWins[1] >= Math.ceil(gameStore.matchMode / 2) || gameStore.matchWins[2] >= Math.ceil(gameStore.matchMode / 2);
 
         const myIdx = gameStore.myPlayerIndex !== undefined ? gameStore.myPlayerIndex : (gameStore.myColor - 1);
         const oppIdx = myIdx === 0 ? 1 : 0;
