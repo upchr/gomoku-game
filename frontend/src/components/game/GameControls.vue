@@ -1,85 +1,78 @@
 <template>
   <div class="controls">
-    <!-- 准备按钮（仅在线模式） -->
-    <button
-      v-if="gameState.gameMode === 'online' && !gameState.isPlaying"
-      class="btn btn-success"
-      :disabled="gameState.matchEnded"
-      @click="$emit('ready')"
-    >
-      准备
-    </button>
+    <div class="btn-row">
+      <button
+        v-if="gameState.gameMode === 'online' && !gameState.isPlaying"
+        class="btn btn-success"
+        :disabled="gameState.matchEnded"
+        @click="$emit('ready')"
+      >
+        准备
+      </button>
 
-    <!-- 悔棋按钮 -->
-    <button
-      v-if="gameState.isPlaying"
-      class="btn btn-warning"
-      :disabled="!canUndo"
-      @click="$emit('undo')"
-    >
-      悔棋
-    </button>
+      <button
+        v-if="gameState.isPlaying"
+        class="btn btn-warning"
+        :disabled="!canUndo"
+        @click="$emit('undo')"
+      >
+        悔棋
+      </button>
 
-    <!-- 认输按钮 -->
-    <button
-      v-if="gameState.isPlaying"
-      class="btn btn-danger"
-      @click="$emit('surrender')"
-    >
-      认输
-    </button>
+      <button
+        v-if="gameState.isPlaying"
+        class="btn btn-danger"
+        @click="$emit('surrender')"
+      >
+        认输
+      </button>
 
-    <!-- 再来一局按钮 -->
-    <button
-      v-if="gameState.gameMode !== 'online' || gameState.isPlaying || (!gameState.isPlaying && !gameState.matchEnded)"
-      class="btn btn-success"
-      :disabled="gameState.isPlaying && gameState.gameMode === 'online'"
-      @click="$emit('play-again')"
-    >
-      {{ gameState.isPlaying && gameState.gameMode === 'online' ? '进行中' : '再来一局' }}
-    </button>
+      <button
+        v-if="gameState.gameMode !== 'online' || gameState.isPlaying || (!gameState.isPlaying && !gameState.matchEnded)"
+        class="btn btn-success"
+        :disabled="gameState.isPlaying && gameState.gameMode === 'online'"
+        @click="$emit('play-again')"
+      >
+        {{ gameState.isPlaying && gameState.gameMode === 'online' ? '进行中' : '再来一局' }}
+      </button>
 
-    <!-- 显示/隐藏序号按钮 -->
-    <button
-      class="btn btn-secondary"
-      @click="$emit('toggle-numbers')"
-    >
-      {{ showMoveNumbers ? '隐藏序号' : '显示序号' }}
-    </button>
+      <button
+        class="btn btn-secondary"
+        @click="$emit('toggle-numbers')"
+      >
+        {{ showMoveNumbers ? '隐藏序号' : '序号' }}
+      </button>
 
-    <!-- 导出棋谱按钮 -->
-    <button
-      v-if="!gameState.isPlaying && gameState.moveHistory.length > 0"
-      class="btn btn-primary"
-      @click="$emit('export-game')"
-    >
-      导出棋谱
-    </button>
+      <button
+        v-if="!gameState.isPlaying && gameState.moveHistory.length > 0"
+        class="btn btn-primary"
+        @click="$emit('export-game')"
+      >
+        导出
+      </button>
 
-    <!-- 退出房间按钮 -->
-    <button
-      class="btn btn-primary"
-      @click="$emit('exit-room')"
+      <button
+        class="btn btn-primary"
+        @click="$emit('exit-room')"
+      >
+        {{ gameState.gameMode === 'online' ? '退出' : '菜单' }}
+      </button>
+    </div>
+
+    <div
+      v-if="gameState.gameMode === 'online' && gameState.isPlaying"
+      class="chat-bar"
     >
-      {{ gameState.gameMode === 'online' ? '退出房间' : '返回菜单' }}
-    </button>
+      <button class="quick-msg" @click="$emit('quick-msg', '你好！')">你好！</button>
+      <button class="quick-msg" @click="$emit('quick-msg', '请稍等')">请稍等</button>
+      <button class="quick-msg" @click="$emit('quick-msg', '好棋！')">好棋！</button>
+      <button class="quick-msg" @click="$emit('quick-msg', 'GG')">GG</button>
+      <button class="emoji-btn" @click="$emit('toggle-emoji')">😊</button>
+    </div>
   </div>
 
-  <!-- 快捷消息和表情栏（仅在线模式） -->
   <div
-    v-if="gameState.gameMode === 'online' && gameState.isPlaying"
-    class="chat-bar"
-  >
-    <button class="quick-msg" @click="$emit('quick-msg', '你好！')">你好！</button>
-    <button class="quick-msg" @click="$emit('quick-msg', '请稍等')">请稍等</button>
-    <button class="quick-msg" @click="$emit('quick-msg', '好棋！')">好棋！</button>
-    <button class="quick-msg" @click="$emit('quick-msg', 'GG')">GG</button>
-    <button class="emoji-btn" @click="$emit('toggle-emoji')">😊</button>
-  </div>
-
-  <!-- 表情弹窗 -->
-  <div
-    v-if="showEmojiPopup"
+    v-if="showEmojiPopup && gameState.gameMode === 'online'"
     class="emoji-popup"
   >
     <div class="emoji-grid">
@@ -121,13 +114,11 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-// 表情列表
 const emojis = [
   '😊', '👍', '👏', '🤔', '😅', '😎',
   '🎉', '💪', '🙏', '😤', '😱', '💀'
 ];
 
-// 点击外部关闭表情弹窗
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement;
   if (!target.closest('.emoji-btn') && !target.closest('.emoji-popup')) {
@@ -143,24 +134,20 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
 });
 
-// 是否可以悔棋
 const canUndo = computed(() => {
   const currentPlayer = props.gameState.currentPlayer;
   const myColor = props.gameState.myColor;
   const isMyTurn = currentPlayer === myColor;
 
-  // 本地模式：始终可以悔棋（如果有剩余次数）
   if (props.gameState.gameMode === 'local') {
     return props.gameState.players[currentPlayer].undoLeft > 0 &&
            props.gameState.moveHistory.length > 0;
   }
 
-  // AI 模式：始终可以悔棋（无限次数）
   if (props.gameState.gameMode === 'ai') {
     return props.gameState.moveHistory.length >= 2;
   }
 
-  // 在线模式：轮到我时才能请求悔棋
   if (props.gameState.gameMode === 'online') {
     return isMyTurn &&
            props.gameState.players[myColor].undoLeft > 0 &&
@@ -173,20 +160,25 @@ const canUndo = computed(() => {
 
 <style scoped>
 .controls {
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.btn-row {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .btn {
-  padding: 10px 18px;
+  padding: 6px 12px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
-  transition: all 0.3s;
+  font-size: 12px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .btn-primary {
@@ -225,25 +217,24 @@ const canUndo = computed(() => {
   transform: none;
 }
 
-/* 快捷消息和表情栏 */
 .chat-bar {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 4px;
   flex-wrap: wrap;
-  padding: 10px;
+  padding: 4px 8px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
 }
 
 .chat-bar .quick-msg {
-  padding: 6px 12px;
+  padding: 4px 10px;
   background: rgba(52, 152, 219, 0.3);
   border: none;
   border-radius: 15px;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -253,12 +244,12 @@ const canUndo = computed(() => {
 }
 
 .chat-bar .emoji-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -267,14 +258,13 @@ const canUndo = computed(() => {
   transform: scale(1.2);
 }
 
-/* 表情弹窗 */
 .emoji-popup {
   position: fixed;
-  bottom: 100px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   background: #2c3e50;
-  padding: 15px;
+  padding: 10px;
   border-radius: 12px;
   display: grid;
   z-index: 1500;
@@ -284,16 +274,16 @@ const canUndo = computed(() => {
 .emoji-popup .emoji-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .emoji-popup .emoji-item {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
-  font-size: 20px;
+  font-size: 18px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -303,9 +293,20 @@ const canUndo = computed(() => {
   transform: scale(1.1);
 }
 
-@media (max-width: 600px) {
+@media (min-width: 768px) {
   .btn {
-    padding: 8px 12px;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  .btn-row {
+    gap: 8px;
+  }
+  .chat-bar {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+  .chat-bar .quick-msg {
+    padding: 6px 12px;
     font-size: 12px;
   }
 }

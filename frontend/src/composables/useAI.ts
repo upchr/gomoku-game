@@ -17,8 +17,23 @@ export function useAI() {
       gameStore.aiWorker.onmessage = (e: MessageEvent) => {
         const result = e.data;
         if (result.requestId !== gameStore.currentAiRequestId) return;
+
+        if (!gameStore.isPlaying || gameStore.currentPlayer !== gameStore.aiColor) {
+          isThinking.value = false;
+          return;
+        }
+
         if (result.success && result.move) {
+          const thinkTime = Math.ceil((result.thinkTime || 0) / 1000);
+          if (thinkTime > 0 && gameStore.players[gameStore.aiColor as Player]) {
+            gameStore.players[gameStore.aiColor as Player].time = Math.max(
+              0,
+              gameStore.players[gameStore.aiColor as Player].time - thinkTime
+            );
+          }
           gameStore.doPlacePiece(result.move.row, result.move.col, gameStore.aiColor as Player);
+        } else {
+          console.error('AI: 计算失败', result.error);
         }
         isThinking.value = false;
       };
@@ -38,13 +53,22 @@ export function useAI() {
     gameStore.aiRequestCounter++;
     gameStore.currentAiRequestId = gameStore.aiRequestCounter;
 
+    const timeLimits: Record<string, number> = {
+      easy: 200,
+      medium: 500,
+      hard: 1000
+    };
+    const timeLimit = timeLimits[gameStore.aiDifficulty] || 1000;
+
+    const plainBoard = JSON.parse(JSON.stringify(gameStore.board));
+
     gameStore.aiWorker.postMessage({
       requestId: gameStore.currentAiRequestId,
-      board: gameStore.board,
+      board: plainBoard,
       player: gameStore.aiColor,
       difficulty: gameStore.aiDifficulty,
       boardSize: gameStore.boardSize,
-      startTime: Date.now()
+      timeLimit: timeLimit
     });
   }
 

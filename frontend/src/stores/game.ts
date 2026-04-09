@@ -129,12 +129,6 @@ export const useGameStore = defineStore('game', () => {
 
     currentPlayer.value = (currentPlayer.value === 1 ? 2 : 1) as Player;
 
-    if (gameMode.value === 'ai' && currentPlayer.value === aiColor.value && !isEnding.value) {
-      aiMoveTimeout.value = setTimeout(() => {
-        triggerAIMove();
-      }, 300);
-    }
-
     return true;
   }
 
@@ -239,7 +233,6 @@ export const useGameStore = defineStore('game', () => {
 
   function resetGame() {
     clearAllTimers();
-    cleanupAI();
     initBoard(boardSize.value);
     currentPlayer.value = 1;
     moveHistory.value = [];
@@ -263,19 +256,34 @@ export const useGameStore = defineStore('game', () => {
     if (gameTime.value > 0) startTimer();
   }
 
-  function restartGame() {
+  function swapColorsAndRestart() {
+    if (gameMode.value === 'ai') {
+      myColor.value = (myColor.value === 1 ? 2 : 1) as Player;
+      aiColor.value = (aiColor.value === 1 ? 2 : 1) as Player;
+    } else if (gameMode.value === 'local') {
+      myColor.value = (myColor.value === 1 ? 2 : 1) as Player;
+    }
+
     const mn = myName.value || '玩家';
     const on = opponentName.value || (gameMode.value === 'ai' ? 'AI' : '对手');
-    startGame(gameMode.value, {
-      player1: myColor.value === 1 ? mn : on,
-      player2: myColor.value === 2 ? mn : on,
-      time: gameTime.value,
-      size: boardSize.value
-    });
+    const aiName = aiDifficulty.value === 'easy' ? 'AI(简单)' : aiDifficulty.value === 'medium' ? 'AI(中等)' : 'AI(困难)';
+    const oppDisplay = gameMode.value === 'ai' ? aiName : on;
 
-    if (gameMode.value === 'ai' && aiColor.value === 1) {
-      aiMoveTimeout.value = setTimeout(() => triggerAIMove(), 300);
-    }
+    players.value[1] = {
+      name: myColor.value === 1 ? mn : oppDisplay,
+      time: gameTime.value,
+      moves: 0,
+      undoLeft: undoLimit.value
+    };
+    players.value[2] = {
+      name: myColor.value === 2 ? mn : oppDisplay,
+      time: gameTime.value,
+      moves: 0,
+      undoLeft: undoLimit.value
+    };
+
+    currentRound.value++;
+    resetGame();
   }
 
   function startTimer() {
@@ -474,7 +482,7 @@ export const useGameStore = defineStore('game', () => {
     opponentColor, isMyTurn, isAiTurn,
 
     initBoard, startGame, makeMove, doPlacePiece, checkWin,
-    endGame, undo, doUndo, resetGame, restartGame,
+    endGame, undo, doUndo, resetGame, swapColorsAndRestart,
     startTimer, stopTimer, clearAllTimers,
     initAI, triggerAIMove, setOnAITurn, cleanupAI,
     saveGameHistory, loadGameHistory, clearGameHistory,

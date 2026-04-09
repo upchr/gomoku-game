@@ -1,13 +1,15 @@
 <template>
-  <div class="player-info" :class="{ me: isMe }">
+  <div class="player-info" :class="{ me: isMe, active: isCurrentTurn }">
     <div class="name">
       <span class="color-icon">{{ colorIcon }}</span>
-      <span>{{ player.name }}</span>
+      <span class="name-text">{{ player.name }}</span>
     </div>
-    <div class="time">{{ formatTime(player.time) }}</div>
-    <div class="moves">落子: {{ player.moves }}</div>
-    <div class="undo-count">悔棋: {{ player.undoLeft }}次</div>
-    <div v-if="isCurrentTurn" class="turn-indicator">⏰ 当前回合</div>
+    <div class="stats">
+      <span class="time" :class="{ 'time-warning': player.time <= 30 && player.time > 0, 'time-danger': player.time <= 10 }">{{ formatTime(player.time) }}</span>
+      <span class="moves">{{ player.moves }}手</span>
+      <span class="undo-count">悔{{ player.undoLeft }}</span>
+    </div>
+    <div v-if="isCurrentTurn" class="turn-indicator">思考中</div>
   </div>
 </template>
 
@@ -33,46 +35,104 @@ function formatTime(seconds: number): string {
 
 <style scoped>
 .player-info {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 10px 18px;
-  border-radius: 12px;
-  margin-bottom: 15px;
-  min-width: 200px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 6px 12px;
+  border-radius: 10px;
+  flex-shrink: 0;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
 }
 
 .player-info.me {
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid #3498db;
+  background: rgba(52, 152, 219, 0.15);
+  border: 1.5px solid rgba(52, 152, 219, 0.5);
+}
+
+.player-info.active {
+  background: rgba(243, 156, 18, 0.12);
+  border: 1.5px solid rgba(243, 156, 18, 0.4);
 }
 
 .name {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .color-icon {
-  font-size: 20px;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
-.time,
-.moves,
-.undo-count {
-  font-size: 14px;
-  color: #ccc;
-  margin-bottom: 4px;
+.name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.time {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  color: #eee;
+  min-width: 42px;
+  text-align: center;
+}
+
+.time-warning {
+  color: #f39c12;
+}
+
+.time-danger {
+  color: #e74c3c;
+  animation: pulse 1s infinite;
+}
+
+.moves, .undo-count {
+  color: #999;
 }
 
 .turn-indicator {
-  margin-top: 8px;
   color: #f39c12;
+  font-size: 11px;
   font-weight: 600;
   animation: pulse 1.5s infinite;
+  flex-shrink: 0;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.4; }
+}
+
+@media (min-width: 768px) {
+  .player-info {
+    padding: 10px 18px;
+    gap: 14px;
+  }
+  .name {
+    font-size: 16px;
+  }
+  .stats {
+    font-size: 13px;
+    gap: 10px;
+  }
 }
 </style>

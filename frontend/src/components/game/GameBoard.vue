@@ -1,6 +1,6 @@
 <template>
-  <div class="board-container" ref="containerRef">
-    <div class="board" :style="boardStyle" ref="boardRef">
+  <div class="board-container">
+    <div class="board" :style="boardStyle">
       <div id="board-inner" :style="innerStyle">
         <svg class="board-svg" :width="svgSize" :height="svgSize">
           <rect :width="svgSize" :height="svgSize" fill="#d4a574" rx="6" />
@@ -69,16 +69,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useGameStore } from '@/stores/game';
 import { useWebSocketStore } from '@/stores/websocket';
 
 const gameStore = useGameStore();
 const wsStore = useWebSocketStore();
-const containerRef = ref<HTMLElement | null>(null);
-const boardRef = ref<HTMLElement | null>(null);
-const windowWidth = ref(window.innerWidth);
-const windowHeight = ref(window.innerHeight);
+const winW = ref(window.innerWidth);
+const winH = ref(window.innerHeight);
 
 const board = computed(() => gameStore.board);
 const boardSize = computed(() => gameStore.boardSize);
@@ -87,14 +85,16 @@ const showMoveNumbers = computed(() => gameStore.showMoveNumbers);
 const winningLine = computed(() => gameStore.winningLine);
 const moveHistory = computed(() => gameStore.moveHistory);
 
-const baseCellSize = 28;
-const basePadding = 14;
+const baseCellSize = 30;
+const basePadding = 15;
 const baseBoardSize = computed(() => baseCellSize * (boardSize.value - 1) + basePadding * 2);
 
 const scale = computed(() => {
-  const maxW = windowWidth.value - 30;
-  const maxH = windowHeight.value - 280;
-  return Math.min(maxW / baseBoardSize.value, maxH / baseBoardSize.value, 1);
+  const maxW = winW.value - 20;
+  const topReserved = 90;
+  const bottomReserved = 80;
+  const maxH = winH.value - topReserved - bottomReserved;
+  return Math.min(maxW / baseBoardSize.value, maxH / baseBoardSize.value, 1.2);
 });
 
 const cellSize = computed(() => baseCellSize * scale.value);
@@ -179,19 +179,23 @@ let resizeTimeout: ReturnType<typeof setTimeout>;
 function onResize() {
   clearTimeout(resizeTimeout);
   resizeTimeout = setTimeout(() => {
-    windowWidth.value = window.innerWidth;
-    windowHeight.value = window.innerHeight;
+    winW.value = window.innerWidth;
+    winH.value = window.innerHeight;
   }, 100);
 }
 
 onMounted(() => {
   window.addEventListener('resize', onResize);
-  gameStore.boardScale = scale.value;
-  gameStore.pieceSize = pieceSizeVal.value;
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
+  clearTimeout(resizeTimeout);
+});
+
+watch(scale, () => {
+  gameStore.boardScale = scale.value;
+  gameStore.pieceSize = pieceSizeVal.value;
 });
 </script>
 
@@ -199,11 +203,16 @@ onUnmounted(() => {
 .board-container {
   display: flex;
   justify-content: center;
-  padding: 10px 0;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px 0;
 }
 
 .board {
   position: relative;
+  flex-shrink: 0;
 }
 
 #board-inner {

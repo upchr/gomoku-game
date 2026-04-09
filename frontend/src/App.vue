@@ -102,7 +102,7 @@
       :show-ready-status="gameMode === 'online'"
       :ready-status="readyStatusText"
       :ready-disabled="isReady"
-      :ready-button-text="isReady ? '已准备' : '准备'"
+      :ready-button-text="readyButtonText"
       @ready="handleReady"
       @close="showWinModal = false"
     />
@@ -198,6 +198,14 @@ const winnerName = computed(() => {
 const matchResultText = computed(() => {
   if (matchMode.value === 1) return '';
   return `比分 ${matchWins.value[1]} : ${matchWins.value[2]}`;
+});
+
+const readyButtonText = computed(() => {
+  if (isReady.value) return '已准备 ✓';
+  if (gameMode.value === 'online') {
+    return gameStore.matchEnded ? '再赛一轮' : '下一局';
+  }
+  return '再来一局';
 });
 
 const gameStateForControls = computed(() => ({
@@ -396,12 +404,14 @@ function handlePlayAgain() {
     isReady.value = true;
     readyStatusText.value = '已准备，等待对手...';
   } else if (gameMode.value === 'ai') {
-    gameStore.resetGame();
+    initAI(gameStore.aiDifficulty);
+    gameStore.setOnAITurn(() => aiMakeMove());
+    gameStore.swapColorsAndRestart();
     if (gameStore.aiColor === 1) {
       setTimeout(() => aiMakeMove(), 300);
     }
   } else {
-    gameStore.resetGame();
+    gameStore.swapColorsAndRestart();
   }
 }
 
@@ -432,15 +442,12 @@ function handleQuickMsg(msg: string) {
   if (gameMode.value === 'online') {
     wsStore.sendQuickMsg(msg);
   }
-  showToast(msg);
 }
 
 function handleSendEmoji(emoji: string) {
-  if (gameMode.value === 'online') {
-    wsStore.sendEmoji(emoji);
-  }
-  showToast(emoji);
   showEmojiPopup.value = false;
+  if (gameMode.value !== 'online') return;
+  wsStore.sendEmoji(emoji);
 }
 
 function acceptUndo() {
@@ -577,7 +584,11 @@ function setupWSMessageHandler() {
 
 watch(() => gameStore.isAiTurn, (val) => {
   if (val && gameStore.isPlaying && !gameStore.isEnding) {
-    setTimeout(() => aiMakeMove(), 300);
+    setTimeout(() => {
+      if (gameStore.isAiTurn && gameStore.isPlaying && !gameStore.isEnding) {
+        aiMakeMove();
+      }
+    }, 300);
   }
 });
 
@@ -604,10 +615,14 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  min-height: 100vh;
   color: #fff;
 }
 
@@ -615,29 +630,46 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .game-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 20px;
   width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  padding: 6px 10px;
+  overflow: hidden;
 }
 
 .score-display {
   text-align: center;
   color: #f39c12;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  margin-bottom: 8px;
-  padding: 6px 16px;
+  margin-bottom: 4px;
+  padding: 4px 12px;
   background: rgba(243, 156, 18, 0.1);
   border-radius: 20px;
+  flex-shrink: 0;
 }
 
 .match-info {
   color: #3498db;
+}
+
+@media (min-width: 768px) {
+  .game-screen {
+    padding: 10px 20px;
+  }
+  .score-display {
+    font-size: 14px;
+    margin-bottom: 8px;
+    padding: 6px 16px;
+  }
 }
 </style>
