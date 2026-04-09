@@ -12,7 +12,7 @@
     <div v-if="currentScreen === 'game'" class="game-screen">
       <div v-if="matchMode > 1 || (gameMode === 'online' && !gameStore.isPlaying && gameStore.moveHistory.length > 0)" class="score-display">
         <span class="match-info">第 {{ currentRound }} 局</span>
-        | 比分 {{ matchWins[1] }} : {{ matchWins[2] }}
+        | 比分 {{ matchWins.myScore }} : {{ matchWins.opponentScore }}
       </div>
 
       <div v-if="boardReadyStatusVisible" class="board-ready-status" :style="{ color: readyStatusColor }">
@@ -189,7 +189,15 @@ const players = computed(() => gameStore.players);
 const myColor = computed(() => gameStore.myColor);
 const opponentColor = computed(() => gameStore.opponentColor);
 const matchMode = computed(() => gameStore.matchMode);
-const matchWins = computed(() => gameStore.matchWins);
+const matchWins = computed(() => {
+  // 按视角显示比分
+  // matchWins[1] = 房主得分, matchWins[2] = 加入者得分
+  if (gameStore.isHost) {
+    return { myScore: gameStore.matchWins[1], opponentScore: gameStore.matchWins[2] };
+  } else {
+    return { myScore: gameStore.matchWins[2], opponentScore: gameStore.matchWins[1] };
+  }
+});
 const currentRound = computed(() => gameStore.currentRound);
 const gameMode = computed(() => gameStore.gameMode);
 const showMoveNumbers = computed(() => gameStore.showMoveNumbers);
@@ -201,10 +209,15 @@ const matchResultText = computed(() => {
   if (matchMode.value === 1) return `本局: ${steps} 步`;
   const targetWins = Math.ceil(matchMode.value / 2);
   if (gameStore.matchEnded) {
-    const matchWinner = matchWins.value[1] >= targetWins ? 1 : 2;
-    return `本局: ${steps} 步 | ${players.value[matchWinner as Player]?.name || ''} 赢得比赛!`;
+    const myWin = matchWins.value.myScore >= targetWins;
+    const opponentWin = matchWins.value.opponentScore >= targetWins;
+    if (myWin) {
+      return `本局: ${steps} 步 | 你赢了比赛!`;
+    } else if (opponentWin) {
+      return `本局: ${steps} 步 | ${gameStore.opponentName} 赢得比赛!`;
+    }
   }
-  return `本局: ${steps} 步 | 比分 ${matchWins.value[1]}:${matchWins.value[2]}`;
+  return `本局: ${steps} 步 | 比分 ${matchWins.value.myScore}:${matchWins.value.opponentScore}`;
 });
 
 const readyButtonText = computed(() => {
