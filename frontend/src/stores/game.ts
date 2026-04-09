@@ -90,9 +90,7 @@ export const useGameStore = defineStore('game', () => {
     undoRequested.value = false;
     showMoveNumbers.value = false;
     matchEnded.value = false;
-
-    if (config?.player1) players.value[1].name = config.player1;
-    if (config?.player2) players.value[2].name = config.player2;
+    clearChatMessages();
 
     gameTime.value = config?.time || 300;
     players.value[1] = {

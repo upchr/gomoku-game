@@ -72,6 +72,7 @@ export interface GameState {
   opponentName: string;
   boardScale: number;
   pieceSize: number;
+  chatMessages: ChatMessage[];
   opponentReady: boolean;
 }
 

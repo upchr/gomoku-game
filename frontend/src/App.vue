@@ -255,6 +255,7 @@ const gameStateForControls = computed(() => ({
   opponentName: gameStore.opponentName,
   boardScale: gameStore.boardScale,
   pieceSize: gameStore.pieceSize,
+  chatMessages: gameStore.chatMessages || [],
   opponentReady: opponentReady.value
 }));
 
