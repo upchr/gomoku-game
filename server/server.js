@@ -338,7 +338,14 @@ function handleJoinRoom(ws, data) {
   });
   
   if (room.players[0] && room.players[0].ws) {
-    send(room.players[0].ws, { type: 'opponent_joined', opponent: room.players[1] });
+    send(room.players[0].ws, { 
+      type: 'opponent_joined', 
+      opponent: room.players[1],
+      gameTime: room.gameTime,
+      boardSize: room.boardSize,
+      matchMode: room.matchMode,
+      undoLimit: room.undoLimit
+    });
   }
   
   console.log(`玩家 ${playerName} 加入房间 ${roomCode}`);
@@ -674,7 +681,8 @@ function startNewGame(room) {
       color: p.color,
       id: p.id
     } : null),
-    matchWins: room.matchWins
+    matchWins: room.matchWins,
+    matchMode: room.matchMode
   });
 }
 

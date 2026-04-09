@@ -186,6 +186,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send({ type: 'emoji', emoji });
   }
 
+  function sendCustomMessage(message: string) {
+    send({ type: 'quick_msg', message });
+  }
+
   function saveRoomInfo(roomCode: string, myName: string, myUserId: string, isHost: boolean) {
     savedRoomInfo.value = { roomCode, myName, myUserId, isHost };
     // 保存到localStorage以便刷新页面后恢复
@@ -255,7 +259,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     createRoom, joinRoom, getRoomList, rejoinRoom,
     placePiece, requestUndo, acceptUndo, rejectUndo,
     surrender, playAgain, leaveRoom,
-    sendQuickMsg, sendEmoji,
+    sendQuickMsg, sendEmoji, sendCustomMessage,
     saveRoomInfo, clearRoomInfo, loadRoomInfo, autoReconnect
   };
 });

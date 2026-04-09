@@ -49,9 +49,9 @@
         @export-game="exportGame"
         @exit-room="handleExitRoom"
         @quick-msg="handleQuickMsg"
-        @toggle-emoji="showEmojiPopup = !showEmojiPopup"
-        @send-emoji="handleSendEmoji"
-      />
+              @toggle-emoji="showEmojiPopup = !showEmojiPopup"
+              @send-emoji="handleSendEmoji"
+              @send-custom="handleSendCustom"      />
     </div>
 
     <LocalSetupPanel
@@ -505,6 +505,13 @@ function handleSendEmoji(emoji: string) {
   wsStore.sendEmoji(emoji);
 }
 
+function handleSendCustom(message: string) {
+  if (gameMode.value !== 'online') return;
+  if (!message.trim()) return;
+  gameStore.addChatMessage(message, 'me', 'text');
+  wsStore.sendQuickMsg(message);
+}
+
 function acceptUndo() {
   wsStore.acceptUndo();
   showUndoRequest.value = false;
@@ -746,6 +753,9 @@ function setupWSMessageHandler() {
         break;
 
       case 'play_again':
+        if (data.matchMode) {
+          gameStore.matchMode = data.matchMode;
+        }
         if (data.currentRound) {
           gameStore.currentRound = data.currentRound;
         }
@@ -896,6 +906,7 @@ body {
   height: 100dvh;
   padding: 6px 10px;
   overflow: hidden;
+  gap: 4px;
 }
 
 .score-display {
@@ -983,6 +994,24 @@ body {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+/* 移动端优化 */
+@media (max-width: 767px) {
+  .game-screen {
+    padding: 4px 8px;
+    gap: 2px;
+  }
+  .score-display {
+    font-size: 11px;
+    margin-bottom: 2px;
+    padding: 3px 8px;
+  }
+  .board-ready-status {
+    font-size: 10px;
+    margin-bottom: 1px;
+    padding: 2px 8px;
   }
 }
 

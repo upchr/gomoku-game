@@ -45,7 +45,7 @@ function formatTime(seconds: number): string {
 <style scoped>
 .player-info {
   background: rgba(255, 255, 255, 0.08);
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 10px;
   flex-shrink: 0;
   transition: all 0.3s;
@@ -53,6 +53,7 @@ function formatTime(seconds: number): string {
   align-items: center;
   gap: 10px;
   width: 100%;
+  margin: 0 6px;
 }
 
 .player-info.me {
@@ -146,14 +147,51 @@ function formatTime(seconds: number): string {
   50% { opacity: 0.4; }
 }
 
+/* 移动端优化 */
+@media (max-width: 767px) {
+  .player-info {
+    padding: 8px 14px;
+    margin: 0 8px;
+  }
+
+  .name {
+    font-size: 13px;
+  }
+
+  .color-icon {
+    font-size: 13px;
+  }
+
+  .stats {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .time {
+    font-size: 11px;
+    min-width: 38px;
+  }
+
+  .turn-indicator {
+    font-size: 10px;
+  }
+}
+
 @media (min-width: 768px) {
   .player-info {
     padding: 10px 18px;
     gap: 14px;
+    margin: 0 8px;
   }
+
   .name {
     font-size: 16px;
   }
+
+  .color-icon {
+    font-size: 16px;
+  }
+
   .stats {
     font-size: 13px;
     gap: 10px;
