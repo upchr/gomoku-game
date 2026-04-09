@@ -2,7 +2,8 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { WebSocketMessage, Room } from '@/types/game';
 
-const WS_SERVER = new URLSearchParams(window.location.search).get('ws') || 'wss://gomoku-game-production.up.railway.app';
+const WS_SERVER = new URLSearchParams(window.location.search).get('ws') ||
+  (import.meta.env.GITHUB_PAGES ? 'wss://gomoku-game-production.up.railway.app' : '/ws');
 
 export const useWebSocketStore = defineStore('websocket', () => {
   const ws = ref<WebSocket | null>(null);

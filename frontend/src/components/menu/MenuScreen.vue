@@ -3,23 +3,23 @@
     <div class="menu-content">
       <h1 class="menu-title">🎮 五子棋</h1>
       <p class="menu-subtitle">在线对战平台</p>
-      
+
       <button class="menu-btn primary" @click="$emit('start-local')">
         🤝 本地对战
       </button>
-      
+
       <button class="menu-btn secondary" @click="$emit('start-ai')">
         🤖 人机对战
       </button>
-      
+
       <button class="menu-btn tertiary" @click="$emit('start-online')">
         🌐 在线对战
       </button>
-      
-      <button class="menu-btn warning" @click="$emit('show-history')">
+
+      <button class="menu-btn warning" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);" @click="$emit('show-history')">
         📜 历史记录
       </button>
-      
+
       <button class="menu-btn warning" @click="$emit('show-rules')">
         📖 游戏规则
       </button>

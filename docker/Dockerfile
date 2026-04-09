@@ -3,26 +3,32 @@ FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app
 
-# 复制前端文件
-COPY index.html ai.js ai-worker.js ./
+# 复制前端 package.json
+COPY frontend/package*.json ./
 
-# 前端是静态文件，无需构建，直接使用 nginx 托管
+# 安装依赖
+RUN npm install
+
+# 复制前端源代码
+COPY frontend/tsconfig*.json ./
+COPY frontend/vite.config.ts ./
+COPY frontend/src ./src
+COPY frontend/public ./public
+
+# 构建 Vue 项目
+RUN npm run build
+
+# 使用 nginx 托管静态文件
 FROM nginx:alpine AS frontend
 
 # 设置正确的文件权限
 RUN chmod 644 /etc/nginx/mime.types
 
-# 复制前端静态文件到 nginx
-COPY --from=frontend-builder /app/index.html /usr/share/nginx/html/index.html
-COPY --from=frontend-builder /app/ai.js /usr/share/nginx/html/ai.js
-COPY --from=frontend-builder /app/ai-worker.js /usr/share/nginx/html/ai-worker.js
+# 复制构建产物到 nginx
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 
 # 设置文件权限
-RUN chmod 644 /usr/share/nginx/html/* && \
-    chown -R nginx:nginx /usr/share/nginx/html
-
-# 替换 WS_SERVER 为使用 nginx 代理的相对路径
-RUN sed -i "s|'wss://gomoku-game-production.up.railway.app'|'/ws'|g" /usr/share/nginx/html/index.html
+RUN chown -R nginx:nginx /usr/share/nginx/html
 
 # 复制 nginx 配置
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
