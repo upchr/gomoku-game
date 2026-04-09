@@ -4,10 +4,10 @@
       <button
         v-if="gameState.gameMode === 'online' && !gameState.isPlaying"
         class="btn btn-success"
-        :disabled="gameState.matchEnded"
+        :disabled="isReady"
         @click="$emit('ready')"
       >
-        准备
+        {{ isReady ? '已准备 ✓' : (gameState.matchEnded ? '再赛一轮' : '下一局') }}
       </button>
 
       <button
@@ -28,12 +28,11 @@
       </button>
 
       <button
-        v-if="gameState.gameMode !== 'online' || gameState.isPlaying || (!gameState.isPlaying && !gameState.matchEnded)"
+        v-if="gameState.gameMode !== 'online' && !gameState.isPlaying"
         class="btn btn-success"
-        :disabled="gameState.isPlaying && gameState.gameMode === 'online'"
         @click="$emit('play-again')"
       >
-        {{ gameState.isPlaying && gameState.gameMode === 'online' ? '进行中' : '再来一局' }}
+        再来一局
       </button>
 
       <button
@@ -96,6 +95,7 @@ interface Props {
   gameState: GameState;
   showMoveNumbers: boolean;
   showEmojiPopup: boolean;
+  isReady?: boolean;
 }
 
 interface Emits {

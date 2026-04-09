@@ -11,7 +11,7 @@ export default defineConfig({
     }
   },
 
-  base: process.env.NODE_ENV === 'production' ? '/gomoku-game/' : '/',
+  base: process.env.GITHUB_PAGES ? '/gomoku-game/' : '/',
 
   build: {
     outDir: 'dist',

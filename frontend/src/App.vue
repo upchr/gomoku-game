@@ -10,9 +10,13 @@
     />
 
     <div v-if="currentScreen === 'game'" class="game-screen">
-      <div v-if="matchMode > 1" class="score-display">
+      <div v-if="matchMode > 1 || (gameMode === 'online' && !gameStore.isPlaying && gameStore.moveHistory.length > 0)" class="score-display">
         <span class="match-info">第 {{ currentRound }} 局</span>
         | 比分 {{ matchWins[1] }} : {{ matchWins[2] }}
+      </div>
+
+      <div v-if="boardReadyStatusVisible" class="board-ready-status" :style="{ color: readyStatusColor }">
+        {{ readyStatusText }}
       </div>
 
       <PlayerInfo
@@ -35,6 +39,7 @@
         :game-state="gameStateForControls"
         :show-move-numbers="showMoveNumbers"
         :show-emoji-popup="showEmojiPopup"
+        :is-ready="isReady"
         @undo="handleUndo"
         @surrender="handleSurrender"
         @play-again="handlePlayAgain"
@@ -101,6 +106,7 @@
       :match-result="matchResultText"
       :show-ready-status="gameMode === 'online'"
       :ready-status="readyStatusText"
+      :ready-status-color="readyStatusColor"
       :ready-disabled="isReady"
       :ready-button-text="readyButtonText"
       @ready="handleReady"
@@ -163,6 +169,9 @@ const onlinePanelRef = ref<any>(null);
 const createRoomPassword = ref('');
 const isReady = ref(false);
 const readyStatusText = ref('等待双方准备...');
+const readyStatusColor = ref('#3498db');
+const boardReadyStatusVisible = ref(false);
+const opponentReady = ref(false);
 
 const panels = ref({
   localSetup: false,
@@ -187,17 +196,15 @@ const showMoveNumbers = computed(() => gameStore.showMoveNumbers);
 const roomCode = computed(() => gameStore.roomCode);
 const pendingRoomCode = computed(() => gameStore.pendingRoomCode);
 
-const winnerName = computed(() => {
-  if (!gameStore.winningLine.length && gameStore.moveHistory.length < boardSize.value * boardSize.value) return '';
-  if (gameStore.moveHistory.length === boardSize.value * boardSize.value && !gameStore.winningLine.length) return '平局';
-  const lastMove = gameStore.moveHistory[gameStore.moveHistory.length - 1];
-  if (!lastMove) return '';
-  return players.value[lastMove.player]?.name || '未知';
-});
-
 const matchResultText = computed(() => {
-  if (matchMode.value === 1) return '';
-  return `比分 ${matchWins.value[1]} : ${matchWins.value[2]}`;
+  const steps = gameStore.moveHistory.length;
+  if (matchMode.value === 1) return `本局: ${steps} 步`;
+  const targetWins = Math.ceil(matchMode.value / 2);
+  if (gameStore.matchEnded) {
+    const matchWinner = matchWins.value[1] >= targetWins ? 1 : 2;
+    return `本局: ${steps} 步 | ${players.value[matchWinner as Player]?.name || ''} 赢得比赛!`;
+  }
+  return `本局: ${steps} 步 | 比分 ${matchWins.value[1]}:${matchWins.value[2]}`;
 });
 
 const readyButtonText = computed(() => {
@@ -206,6 +213,14 @@ const readyButtonText = computed(() => {
     return gameStore.matchEnded ? '再赛一轮' : '下一局';
   }
   return '再来一局';
+});
+
+const winnerName = computed(() => {
+  if (gameStore.winningLine.length === 0 && gameStore.moveHistory.length === boardSize.value * boardSize.value) return '平局';
+  if (gameStore.winningLine.length === 0) return '';
+  const winner = gameStore.moveHistory.length > 0 ? gameStore.moveHistory[gameStore.moveHistory.length - 1].player : 0;
+  if (winner === 0) return '平局';
+  return players.value[winner as Player]?.name || '未知';
 });
 
 const gameStateForControls = computed(() => ({
@@ -239,7 +254,8 @@ const gameStateForControls = computed(() => ({
   myPlayerIndex: gameStore.myPlayerIndex,
   opponentName: gameStore.opponentName,
   boardScale: gameStore.boardScale,
-  pieceSize: gameStore.pieceSize
+  pieceSize: gameStore.pieceSize,
+  opponentReady: opponentReady.value
 }));
 
 function showToast(message: string) {
@@ -403,6 +419,8 @@ function handlePlayAgain() {
     wsStore.playAgain();
     isReady.value = true;
     readyStatusText.value = '已准备，等待对手...';
+    readyStatusColor.value = '#2ecc71';
+    boardReadyStatusVisible.value = true;
   } else if (gameMode.value === 'ai') {
     initAI(gameStore.aiDifficulty);
     gameStore.setOnAITurn(() => aiMakeMove());
@@ -425,6 +443,10 @@ function handleExitRoom() {
   currentScreen.value = 'menu';
   showWinModal.value = false;
   isReady.value = false;
+  opponentReady.value = false;
+  boardReadyStatusVisible.value = false;
+  readyStatusText.value = '等待双方准备...';
+  readyStatusColor.value = '#3498db';
 }
 
 function handleReady() {
@@ -432,6 +454,7 @@ function handleReady() {
     wsStore.playAgain();
     isReady.value = true;
     readyStatusText.value = '已准备，等待对手...';
+    readyStatusColor.value = '#2ecc71';
   } else {
     showWinModal.value = false;
     handlePlayAgain();
@@ -507,13 +530,21 @@ function setupWSMessageHandler() {
         break;
 
       case 'game_over':
-        if (data.winner) {
-          gameStore.matchWins[data.winner as Player]++;
+        if (data.matchWins) {
+          gameStore.matchWins = data.matchWins;
+        }
+        if (data.winningMove) {
+          const wr = data.winningMove.row;
+          const wc = data.winningMove.col;
+          gameStore.doPlacePiece(wr, wc, data.winner as Player);
         }
         gameStore.endGame((data.winner || 0) as Player | 0);
         showWinModal.value = true;
         isReady.value = false;
+        opponentReady.value = false;
         readyStatusText.value = '等待双方准备...';
+        readyStatusColor.value = '#3498db';
+        boardReadyStatusVisible.value = true;
         break;
 
       case 'opponent_left':
@@ -549,11 +580,11 @@ function setupWSMessageHandler() {
         break;
 
       case 'quick_msg':
-        showToast(data.message || '');
+        showToast(`${data.playerName || '对手'}: ${data.message || ''}`);
         break;
 
       case 'emoji':
-        showToast(data.emoji || '');
+        showToast(`${data.playerColor === gameStore.myColor ? '你' : '对手'}: ${data.emoji || ''}`);
         break;
 
       case 'error':
@@ -572,11 +603,71 @@ function setupWSMessageHandler() {
         showToast('服务器即将关闭');
         break;
 
+      case 'play_again_status':
+        if (data.matchWins) {
+          gameStore.matchWins = data.matchWins;
+        }
+        if (data.currentRound) {
+          gameStore.currentRound = data.currentRound;
+        }
+
+        const targetWins = Math.ceil(gameStore.matchMode / 2);
+        gameStore.matchEnded = gameStore.matchWins[1] >= targetWins || gameStore.matchWins[2] >= targetWins;
+
+        const myIdx = gameStore.myPlayerIndex !== undefined ? gameStore.myPlayerIndex : (gameStore.myColor - 1);
+        const oppIdx = myIdx === 0 ? 1 : 0;
+        const myReadyStatus = data.ready ? data.ready[myIdx] : false;
+        const oppReadyStatus = data.ready ? data.ready[oppIdx] : false;
+
+        opponentReady.value = oppReadyStatus;
+
+        if (myReadyStatus && oppReadyStatus) {
+          readyStatusText.value = '双方已准备，即将开始...';
+          readyStatusColor.value = '#2ecc71';
+        } else if (oppReadyStatus) {
+          readyStatusText.value = '对手已准备，等你确认';
+          readyStatusColor.value = '#f39c12';
+        } else {
+          readyStatusText.value = '等待双方准备...';
+          readyStatusColor.value = '#3498db';
+        }
+        break;
+
       case 'play_again':
+        if (data.currentRound) {
+          gameStore.currentRound = data.currentRound;
+        }
+        if (data.matchWins) {
+          gameStore.matchWins = data.matchWins;
+        }
+        if (data.players) {
+          const myPlayer = data.players.find((p: any) => p && p.id === gameStore.myUserId);
+          if (myPlayer) {
+            gameStore.myColor = myPlayer.color;
+            gameStore.myPlayerIndex = data.players.indexOf(myPlayer);
+            const opponent = data.players.find((p: any) => p && p.color !== myPlayer.color);
+            if (opponent) {
+              gameStore.opponentName = opponent.name;
+            }
+          }
+          data.players.forEach((p: any) => {
+            if (p) {
+              gameStore.players[p.color] = {
+                name: p.name,
+                time: p.time,
+                moves: p.moves || 0,
+                undoLeft: p.undoLeft || gameStore.undoLimit
+              };
+            }
+          });
+        }
         gameStore.resetGame();
         isReady.value = false;
+        opponentReady.value = false;
         showWinModal.value = false;
+        boardReadyStatusVisible.value = false;
         readyStatusText.value = '等待双方准备...';
+        readyStatusColor.value = '#3498db';
         break;
     }
   });
@@ -656,6 +747,21 @@ body {
   background: rgba(243, 156, 18, 0.1);
   border-radius: 20px;
   flex-shrink: 0;
+}
+
+.board-ready-status {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  padding: 2px 10px;
+  flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .match-info {

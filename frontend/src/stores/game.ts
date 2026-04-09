@@ -107,23 +107,27 @@ export const useGameStore = defineStore('game', () => {
     const winResult = checkWin(row, col, player);
     if (winResult) {
       winningLine.value = winResult;
-      matchWins.value[player]++;
-      isEnding.value = true;
-      endGameTimeout.value = setTimeout(() => {
-        isEnding.value = false;
-        endGameTimeout.value = null;
-        endGame(player);
-      }, 2000);
+      if (gameMode.value !== 'online') {
+        matchWins.value[player]++;
+        isEnding.value = true;
+        endGameTimeout.value = setTimeout(() => {
+          isEnding.value = false;
+          endGameTimeout.value = null;
+          endGame(player);
+        }, 2000);
+      }
       return true;
     }
 
     if (moveHistory.value.length === boardSize.value * boardSize.value) {
-      isEnding.value = true;
-      endGameTimeout.value = setTimeout(() => {
-        isEnding.value = false;
-        endGameTimeout.value = null;
-        endGame(0 as Player);
-      }, 1000);
+      if (gameMode.value !== 'online') {
+        isEnding.value = true;
+        endGameTimeout.value = setTimeout(() => {
+          isEnding.value = false;
+          endGameTimeout.value = null;
+          endGame(0 as Player);
+        }, 1000);
+      }
       return true;
     }
 

@@ -72,6 +72,7 @@ export interface GameState {
   opponentName: string;
   boardScale: number;
   pieceSize: number;
+  opponentReady: boolean;
 }
 
 export interface WebSocketMessage {
