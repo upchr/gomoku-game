@@ -1,85 +1,56 @@
-/**
- * AI 集成
- */
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useGameStore } from '@/stores/game';
-import GomokuAI from '@/utils/ai.js';
+import type { Difficulty, Player } from '@/types/game';
 
 export function useAI() {
   const gameStore = useGameStore();
-  const aiEngine = ref<GomokuAI | null>(null);
   const isThinking = ref(false);
-  const worker = ref<Worker | null>(null);
-  const aiRequestCounter = ref(0);
-  const currentAiRequestId = ref(0);
 
-  /**
-   * 初始化 AI
-   */
-  function initAI(difficulty: 'easy' | 'medium' | 'hard') {
+  function initAI(difficulty: Difficulty) {
     gameStore.aiDifficulty = difficulty;
-    aiEngine.value = new GomokuAI(difficulty, gameStore.boardSize);
-    
-    // 初始化 Web Worker
+
     if (window.Worker) {
-      worker.value = new Worker('/src/utils/ai-worker.js');
-      
-      worker.value.onmessage = (e) => {
+      if (gameStore.aiWorker) {
+        gameStore.aiWorker.terminate();
+      }
+      gameStore.aiWorker = new Worker('/ai-worker.js');
+      gameStore.aiWorker.onmessage = (e: MessageEvent) => {
         const result = e.data;
-        
-        // 检查请求 ID
-        if (result.requestId !== currentAiRequestId.value) {
-          console.log('AI: 忽略过期响应');
-          return;
-        }
-        
+        if (result.requestId !== gameStore.currentAiRequestId) return;
         if (result.success && result.move) {
-          gameStore.makeMove(result.move.row, result.move.col);
-          isThinking.value = false;
+          gameStore.doPlacePiece(result.move.row, result.move.col, gameStore.aiColor as Player);
         }
+        isThinking.value = false;
+      };
+      gameStore.aiWorker.onerror = (err) => {
+        console.error('AI Worker error', err);
+        isThinking.value = false;
       };
     }
   }
 
-  /**
-   * AI 落子
-   */
-  async function makeMove() {
-    if (!aiEngine.value || !worker.value || isThinking.value) return;
-    
-    if (!gameStore.isPlaying || gameStore.isEnding) {
-      console.log('AI: 游戏未开始或已结束');
-      return;
-    }
-    
-    if (gameStore.currentPlayer !== gameStore.aiColor) {
-      console.log('AI: 不是 AI 回合');
-      return;
-    }
-    
+  function makeMove() {
+    if (!gameStore.aiWorker || isThinking.value) return;
+    if (!gameStore.isPlaying || gameStore.isEnding) return;
+    if (gameStore.currentPlayer !== gameStore.aiColor) return;
+
     isThinking.value = true;
-    aiRequestCounter.value++;
-    currentAiRequestId.value = aiRequestCounter.value;
-    
-    // 发送计算请求到 Worker
-    worker.value.postMessage({
-      requestId: currentAiRequestId.value,
+    gameStore.aiRequestCounter++;
+    gameStore.currentAiRequestId = gameStore.aiRequestCounter;
+
+    gameStore.aiWorker.postMessage({
+      requestId: gameStore.currentAiRequestId,
       board: gameStore.board,
-      player: gameStore.aiColor!,
+      player: gameStore.aiColor,
       difficulty: gameStore.aiDifficulty,
+      boardSize: gameStore.boardSize,
       startTime: Date.now()
     });
   }
 
-  /**
-   * 清理资源
-   */
   function cleanup() {
-    if (worker.value) {
-      worker.value.terminate();
-      worker.value = null;
-    }
-    aiEngine.value = null;
+    gameStore.cleanupAI();
+    isThinking.value = false;
   }
 
   return {

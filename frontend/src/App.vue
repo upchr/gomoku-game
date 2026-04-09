@@ -1,193 +1,402 @@
 <template>
   <div id="app">
-    <!-- 主菜单 -->
     <MenuScreen
-      v-if="showMenu"
-      @start-local="startLocalGame"
-      @start-ai="startAIGame"
-      @start-online="startOnlineGame"
-      @show-history="showHistory = true"
+      v-if="currentScreen === 'menu'"
+      @start-local="showLocalSetup"
+      @start-ai="showAISetup"
+      @start-online="showOnlineSetup"
+      @show-history="currentScreen = 'history'"
       @show-rules="showRules = true"
     />
-    
-    <!-- 游戏界面 -->
-    <div v-if="showGame" class="game-screen">
-      <!-- 对手信息 -->
+
+    <div v-if="currentScreen === 'game'" class="game-screen">
+      <div v-if="matchMode > 1" class="score-display">
+        <span class="match-info">第 {{ currentRound }} 局</span>
+        | 比分 {{ matchWins[1] }} : {{ matchWins[2] }}
+      </div>
+
       <PlayerInfo
-        :player="gameStore.players[opponentColor]"
+        :player="players[opponentColor]"
         :color="opponentColor"
         :is-me="false"
-        :is-current-turn="gameStore.currentPlayer === opponentColor"
+        :is-current-turn="currentPlayer === opponentColor"
       />
-      
-      <!-- 棋盘 -->
+
       <GameBoard />
-      
-      <!-- 我方信息 -->
+
       <PlayerInfo
-        :player="gameStore.players[gameStore.myColor]"
-        :color="gameStore.myColor"
+        :player="players[myColor]"
+        :color="myColor"
         :is-me="true"
-        :is-current-turn="gameStore.currentPlayer === gameStore.myColor"
+        :is-current-turn="currentPlayer === myColor"
       />
-      
-      <!-- 控制按钮 -->
-      <div class="controls">
-        <button class="btn btn-warning" @click="undo" :disabled="!canUndo">悔棋</button>
-        <button class="btn btn-danger" @click="surrender">认输</button>
-        <button class="btn btn-success" @click="resetGame">再来一局</button>
-        <button class="btn btn-primary" @click="toggleMoveNumbers">
-          {{ showMoveNumbers ? '隐藏序号' : '显示序号' }}
-        </button>
-      </div>
+
+      <GameControls
+        :game-state="gameStateForControls"
+        :show-move-numbers="showMoveNumbers"
+        :show-emoji-popup="showEmojiPopup"
+        @undo="handleUndo"
+        @surrender="handleSurrender"
+        @play-again="handlePlayAgain"
+        @toggle-numbers="gameStore.showMoveNumbers = !gameStore.showMoveNumbers"
+        @export-game="exportGame"
+        @exit-room="handleExitRoom"
+        @quick-msg="handleQuickMsg"
+        @toggle-emoji="showEmojiPopup = !showEmojiPopup"
+        @send-emoji="handleSendEmoji"
+      />
     </div>
-    
-    <!-- 规则弹窗 -->
-    <div v-if="showRules" class="rules-panel">
-      <div class="rules-content">
-        <h2>📖 游戏规则</h2>
-        <div class="rules-body">
-          <h3>基本规则</h3>
-          <ul>
-            <li>黑方先行，双方轮流落子</li>
-            <li>棋子落在网格线交点上</li>
-            <li>先连成五子者获胜</li>
-          </ul>
-          <h3>悔棋规则</h3>
-          <ul>
-            <li>本地对战：直接悔棋</li>
-            <li>人机对战：可无限悔棋</li>
-            <li>在线对战：需对方同意</li>
-          </ul>
-        </div>
-        <button class="menu-btn primary close-btn" @click="showRules = false">
-          知道了
-        </button>
-      </div>
-    </div>
-    
-    <!-- 历史记录 -->
-    <div v-if="showHistory" class="history-panel">
-      <div class="history-content">
-        <h2>📜 历史记录</h2>
-        <div class="history-list">
-          <p v-if="gameHistory.length === 0" class="empty">暂无对局记录</p>
-          <div v-else class="history-item">
-            <span>示例对局 1</span>
-            <span class="result">黑方胜</span>
-          </div>
-        </div>
-        <button class="menu-btn primary close-btn" @click="showHistory = false">
-          关闭
-        </button>
-      </div>
-    </div>
+
+    <LocalSetupPanel
+      v-model:visible="panels.localSetup"
+      @start="startLocalGame"
+    />
+
+    <AISetupPanel
+      v-model:visible="panels.aiSetup"
+      @start="startAIGame"
+    />
+
+    <OnlinePanel
+      ref="onlinePanelRef"
+      v-model:visible="panels.onlineSetup"
+      @create-room="showCreateRoom"
+      @refresh-room-list="refreshRoomList"
+      @join-room="handleJoinRoom"
+      @join-room-by-code="handleJoinRoomByCode"
+    />
+
+    <CreateRoomPanel
+      v-model:visible="panels.createRoom"
+      @create="handleCreateRoom"
+    />
+
+    <WaitingPanel
+      v-model:visible="panels.waiting"
+      :room-code="roomCode"
+      :password="createRoomPassword"
+      @cancel="cancelWaiting"
+    />
+
+    <PasswordPanel
+      v-model:visible="panels.password"
+      :room-code="pendingRoomCode"
+      @submit="submitPassword"
+    />
+
+    <RulesPanel
+      :visible="showRules"
+      @close="showRules = false"
+    />
+
+    <HistoryPanel
+      :visible="currentScreen === 'history'"
+      @close="currentScreen = 'menu'"
+      @show-toast="showToast"
+    />
+
+    <WinModal
+      :visible="showWinModal"
+      :winner-name="winnerName"
+      :match-result="matchResultText"
+      :show-ready-status="gameMode === 'online'"
+      :ready-status="readyStatusText"
+      :ready-disabled="isReady"
+      :ready-button-text="isReady ? '已准备' : '准备'"
+      @ready="handleReady"
+      @close="showWinModal = false"
+    />
+
+    <UndoRequestModal
+      :visible="showUndoRequest"
+      :request-text="undoRequestText"
+      @accept="acceptUndo"
+      @reject="rejectUndo"
+    />
+
+    <Toast
+      :message="toastMessage"
+      :visible="toastVisible"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useGameStore } from '@/stores/game';
-import { useAI } from './composables/useAI';
-import MenuScreen from './components/menu/MenuScreen.vue';
-import GameBoard from './components/game/GameBoard.vue';
-import PlayerInfo from './components/game/PlayerInfo.vue';
+import { useWebSocketStore } from '@/stores/websocket';
+import { useAI } from '@/composables/useAI';
+import type { Player, GameMode, MatchMode, Difficulty, Room } from '@/types/game';
+
+import MenuScreen from '@/components/menu/MenuScreen.vue';
+import GameBoard from '@/components/game/GameBoard.vue';
+import PlayerInfo from '@/components/game/PlayerInfo.vue';
+import GameControls from '@/components/game/GameControls.vue';
+import LocalSetupPanel from '@/components/online/LocalSetupPanel.vue';
+import AISetupPanel from '@/components/online/AISetupPanel.vue';
+import OnlinePanel from '@/components/online/OnlinePanel.vue';
+import CreateRoomPanel from '@/components/online/CreateRoomPanel.vue';
+import WaitingPanel from '@/components/online/WaitingPanel.vue';
+import PasswordPanel from '@/components/online/PasswordPanel.vue';
+import RulesPanel from '@/components/RulesPanel.vue';
+import HistoryPanel from '@/components/HistoryPanel.vue';
+import WinModal from '@/components/WinModal.vue';
+import UndoRequestModal from '@/components/UndoRequestModal.vue';
+import Toast from '@/components/Toast.vue';
 
 const gameStore = useGameStore();
-const { isThinking, initAI, makeMove: aiMakeMove, cleanup } = useAI();
+const wsStore = useWebSocketStore();
+const { isThinking, initAI, makeMove: aiMakeMove, cleanup: aiCleanup } = useAI();
 
-// 界面状态
-const showMenu = ref(true);
-const showGame = ref(false);
+const currentScreen = ref<'menu' | 'game' | 'history'>('menu');
 const showRules = ref(false);
-const showHistory = ref(false);
-const gameHistory = ref<any[]>([]);
+const showWinModal = ref(false);
+const showUndoRequest = ref(false);
+const showEmojiPopup = ref(false);
+const undoRequestText = ref('对手请求悔棋，是否同意？');
 
-// 计算属性
+const toastMessage = ref('');
+const toastVisible = ref(false);
+let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const onlinePanelRef = ref<any>(null);
+const createRoomPassword = ref('');
+const isReady = ref(false);
+const readyStatusText = ref('等待双方准备...');
+
+const panels = ref({
+  localSetup: false,
+  aiSetup: false,
+  onlineSetup: false,
+  createRoom: false,
+  waiting: false,
+  password: false
+});
+
+const board = computed(() => gameStore.board);
+const boardSize = computed(() => gameStore.boardSize);
+const currentPlayer = computed(() => gameStore.currentPlayer);
+const players = computed(() => gameStore.players);
+const myColor = computed(() => gameStore.myColor);
 const opponentColor = computed(() => gameStore.opponentColor);
-const canUndo = computed(() => gameStore.moveHistory.length > 0 && gameStore.isMyTurn);
+const matchMode = computed(() => gameStore.matchMode);
+const matchWins = computed(() => gameStore.matchWins);
+const currentRound = computed(() => gameStore.currentRound);
+const gameMode = computed(() => gameStore.gameMode);
 const showMoveNumbers = computed(() => gameStore.showMoveNumbers);
+const roomCode = computed(() => gameStore.roomCode);
+const pendingRoomCode = computed(() => gameStore.pendingRoomCode);
 
-/**
- * 开始本地对战
- */
-function startLocalGame() {
-  showMenu.value = false;
-  showGame.value = true;
-  
+const winnerName = computed(() => {
+  if (!gameStore.winningLine.length && gameStore.moveHistory.length < boardSize.value * boardSize.value) return '';
+  if (gameStore.moveHistory.length === boardSize.value * boardSize.value && !gameStore.winningLine.length) return '平局';
+  const lastMove = gameStore.moveHistory[gameStore.moveHistory.length - 1];
+  if (!lastMove) return '';
+  return players.value[lastMove.player]?.name || '未知';
+});
+
+const matchResultText = computed(() => {
+  if (matchMode.value === 1) return '';
+  return `比分 ${matchWins.value[1]} : ${matchWins.value[2]}`;
+});
+
+const gameStateForControls = computed(() => ({
+  board: gameStore.board,
+  boardSize: gameStore.boardSize,
+  currentPlayer: gameStore.currentPlayer,
+  players: gameStore.players,
+  gameTime: gameStore.gameTime,
+  gameMode: gameStore.gameMode,
+  isPlaying: gameStore.isPlaying,
+  isEnding: gameStore.isEnding,
+  startTime: gameStore.startTime,
+  moveHistory: gameStore.moveHistory,
+  myColor: gameStore.myColor,
+  myName: gameStore.myName,
+  roomCode: gameStore.roomCode,
+  pendingRoomCode: gameStore.pendingRoomCode,
+  previewCell: gameStore.previewCell,
+  undoRequested: gameStore.undoRequested,
+  matchMode: gameStore.matchMode,
+  matchWins: gameStore.matchWins,
+  currentRound: gameStore.currentRound,
+  undoLimit: gameStore.undoLimit,
+  winningLine: gameStore.winningLine,
+  aiColor: gameStore.aiColor,
+  aiDifficulty: gameStore.aiDifficulty,
+  showMoveNumbers: gameStore.showMoveNumbers,
+  matchEnded: gameStore.matchEnded,
+  isHost: gameStore.isHost,
+  myUserId: gameStore.myUserId,
+  myPlayerIndex: gameStore.myPlayerIndex,
+  opponentName: gameStore.opponentName,
+  boardScale: gameStore.boardScale,
+  pieceSize: gameStore.pieceSize
+}));
+
+function showToast(message: string) {
+  toastMessage.value = message;
+  toastVisible.value = true;
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    toastVisible.value = false;
+  }, 2500);
+}
+
+function showLocalSetup() {
+  panels.value.localSetup = true;
+}
+
+function showAISetup() {
+  panels.value.aiSetup = true;
+}
+
+function showOnlineSetup() {
+  panels.value.onlineSetup = true;
+}
+
+function showCreateRoom(nickname: string) {
+  gameStore.myName = nickname;
+  panels.value.createRoom = true;
+}
+
+function startLocalGame(config: { player1: string; player2: string; time: number; size: number; undoLimit: number }) {
+  gameStore.undoLimit = config.undoLimit;
   gameStore.myColor = 1;
-  gameStore.myName = '玩家1';
-  
+  gameStore.myName = config.player1;
   gameStore.startGame('local', {
-    player1Name: '玩家1',
-    player2Name: '玩家2',
-    time: 300,
-    size: 15
+    player1: config.player1,
+    player2: config.player2,
+    time: config.time,
+    size: config.size
   });
+  currentScreen.value = 'game';
 }
 
-/**
- * 开始人机对战
- */
-function startAIGame() {
-  showMenu.value = false;
-  showGame.value = true;
-  
-  gameStore.myColor = 1;
-  gameStore.myName = '玩家';
-  
+function startAIGame(config: { playerName: string; playerColor: Player; difficulty: Difficulty; size: number; time: number }) {
+  gameStore.myColor = config.playerColor;
+  gameStore.myName = config.playerName;
+  gameStore.aiColor = (config.playerColor === 1 ? 2 : 1) as Player;
+
+  const aiName = config.difficulty === 'easy' ? 'AI(简单)' : config.difficulty === 'medium' ? 'AI(中等)' : 'AI(困难)';
+
   gameStore.startGame('ai', {
-    player1Name: '玩家',
-    player2Name: 'AI',
-    time: 300,
-    size: 15
+    player1: config.playerColor === 1 ? config.playerName : aiName,
+    player2: config.playerColor === 2 ? config.playerName : aiName,
+    time: config.time,
+    size: config.size
   });
-  
-  gameStore.aiColor = 2;
-  initAI('medium');
+
+  initAI(config.difficulty);
+  gameStore.setOnAITurn(() => aiMakeMove());
+
+  if (gameStore.aiColor === 1) {
+    setTimeout(() => aiMakeMove(), 300);
+  }
+
+  currentScreen.value = 'game';
 }
 
-/**
- * 开始在线对战
- */
-function startOnlineGame() {
-  // TODO: 实现在线对战
-  alert('在线对战功能开发中...');
+async function refreshRoomList() {
+  if (!wsStore.connected) {
+    try {
+      await wsStore.connect();
+      setupWSMessageHandler();
+    } catch {
+      showToast('连接服务器失败');
+      return;
+    }
+  }
+  wsStore.getRoomList();
 }
 
-/**
- * 悔棋
- */
-function undo() {
-  if (gameStore.gameMode === 'ai') {
-    // 人机模式：悔两步
-    gameStore.undo();
-    gameStore.undo();
+function handleJoinRoom(data: { roomCode: string; hasPassword: boolean; nickname: string }) {
+  gameStore.myName = data.nickname;
+  gameStore.pendingRoomCode = data.roomCode;
+  if (data.hasPassword) {
+    panels.value.password = true;
   } else {
-    // 本地模式：悔一步
+    doJoinRoom(data.roomCode, data.nickname);
+  }
+}
+
+function handleJoinRoomByCode(data: { roomCode: string; nickname: string }) {
+  gameStore.myName = data.nickname;
+  gameStore.pendingRoomCode = data.roomCode;
+  doJoinRoom(data.roomCode, data.nickname);
+}
+
+function submitPassword(password: string) {
+  doJoinRoom(pendingRoomCode.value, gameStore.myName, password);
+}
+
+async function doJoinRoom(code: string, nickname: string, password?: string) {
+  if (!wsStore.connected) {
+    try {
+      await wsStore.connect();
+      setupWSMessageHandler();
+    } catch {
+      showToast('连接服务器失败');
+      return;
+    }
+  }
+  wsStore.joinRoom(code, nickname, password);
+}
+
+async function handleCreateRoom(config: { password: string; time: number; size: number; matchMode: MatchMode; undoLimit: number }) {
+  if (!wsStore.connected) {
+    try {
+      await wsStore.connect();
+      setupWSMessageHandler();
+    } catch {
+      showToast('连接服务器失败');
+      return;
+    }
+  }
+  createRoomPassword.value = config.password;
+  wsStore.createRoom({
+    password: config.password,
+    time: config.time,
+    size: config.size,
+    matchMode: config.matchMode,
+    undoLimit: config.undoLimit,
+    nickname: gameStore.myName
+  });
+}
+
+function cancelWaiting() {
+  wsStore.leaveRoom();
+  panels.value.waiting = false;
+  gameStore.roomCode = '';
+}
+
+function handleUndo() {
+  if (gameMode.value === 'online') {
+    wsStore.requestUndo();
+    showToast('已发送悔棋请求');
+  } else {
     gameStore.undo();
   }
 }
 
-/**
- * 认输
- */
-function surrender() {
-  if (confirm('确定要认输吗？')) {
-    gameStore.endGame();
-    alert('你认输了！');
+function handleSurrender() {
+  if (!confirm('确定要认输吗？')) return;
+  if (gameMode.value === 'online') {
+    wsStore.surrender();
+  } else {
+    const winner = currentPlayer.value === 1 ? 2 : 1;
+    gameStore.matchWins[winner as Player]++;
+    gameStore.endGame(winner as Player);
   }
 }
 
-/**
- * 再来一局
- */
-function resetGame() {
-  if (gameStore.gameMode === 'ai') {
-    // AI 模式：重置游戏
+function handlePlayAgain() {
+  if (gameMode.value === 'online') {
+    wsStore.playAgain();
+    isReady.value = true;
+    readyStatusText.value = '已准备，等待对手...';
+  } else if (gameMode.value === 'ai') {
     gameStore.resetGame();
-    
-    // 如果 AI 执黑，让 AI 先下
     if (gameStore.aiColor === 1) {
       setTimeout(() => aiMakeMove(), 300);
     }
@@ -196,40 +405,195 @@ function resetGame() {
   }
 }
 
-/**
- * 切换序号显示
- */
-function toggleMoveNumbers() {
-  gameStore.showMoveNumbers = !gameStore.showMoveNumbers;
+function handleExitRoom() {
+  if (gameMode.value === 'online') {
+    wsStore.leaveRoom();
+    wsStore.disconnect();
+  }
+  gameStore.backToMenu();
+  aiCleanup();
+  currentScreen.value = 'menu';
+  showWinModal.value = false;
+  isReady.value = false;
 }
 
-/**
- * 监听 AI 回合
- */
-watch(() => gameStore.isAiTurn, (isAiTurn) => {
-  if (isAiTurn && gameStore.isPlaying) {
+function handleReady() {
+  if (gameMode.value === 'online') {
+    wsStore.playAgain();
+    isReady.value = true;
+    readyStatusText.value = '已准备，等待对手...';
+  } else {
+    showWinModal.value = false;
+    handlePlayAgain();
+  }
+}
+
+function handleQuickMsg(msg: string) {
+  if (gameMode.value === 'online') {
+    wsStore.sendQuickMsg(msg);
+  }
+  showToast(msg);
+}
+
+function handleSendEmoji(emoji: string) {
+  if (gameMode.value === 'online') {
+    wsStore.sendEmoji(emoji);
+  }
+  showToast(emoji);
+  showEmojiPopup.value = false;
+}
+
+function acceptUndo() {
+  wsStore.acceptUndo();
+  showUndoRequest.value = false;
+}
+
+function rejectUndo() {
+  wsStore.rejectUndo();
+  showUndoRequest.value = false;
+}
+
+function exportGame() {
+  gameStore.exportGame();
+}
+
+function setupWSMessageHandler() {
+  wsStore.onMessage((data: any) => {
+    switch (data.type) {
+      case 'room_created':
+        gameStore.roomCode = data.roomCode;
+        gameStore.isHost = true;
+        gameStore.myUserId = data.userId;
+        panels.value.createRoom = false;
+        panels.value.onlineSetup = false;
+        panels.value.waiting = true;
+        break;
+
+      case 'room_joined':
+        gameStore.roomCode = data.roomCode;
+        gameStore.myColor = data.color;
+        gameStore.myUserId = data.userId;
+        gameStore.isHost = false;
+        panels.value.onlineSetup = false;
+        panels.value.password = false;
+        break;
+
+      case 'opponent_joined':
+        gameStore.opponentName = data.opponentName;
+        panels.value.waiting = false;
+        gameStore.undoLimit = data.undoLimit || 3;
+        gameStore.startGame('online', {
+          player1: gameStore.myColor === 1 ? gameStore.myName : data.opponentName,
+          player2: gameStore.myColor === 2 ? gameStore.myName : data.opponentName,
+          time: data.time || 300,
+          size: data.size || 15,
+          matchMode: (data.matchMode || 1) as MatchMode
+        });
+        currentScreen.value = 'game';
+        break;
+
+      case 'piece_placed':
+        gameStore.doPlacePiece(data.row, data.col, data.player as Player);
+        if (data.currentPlayer) {
+          gameStore.currentPlayer = data.currentPlayer as Player;
+        }
+        break;
+
+      case 'game_over':
+        if (data.winner) {
+          gameStore.matchWins[data.winner as Player]++;
+        }
+        gameStore.endGame((data.winner || 0) as Player | 0);
+        showWinModal.value = true;
+        isReady.value = false;
+        readyStatusText.value = '等待双方准备...';
+        break;
+
+      case 'opponent_left':
+        showToast('对手已离开房间');
+        break;
+
+      case 'opponent_disconnected':
+        showToast('对手已断线，等待重连...');
+        break;
+
+      case 'opponent_reconnected':
+        showToast('对手已重连');
+        break;
+
+      case 'undo_request':
+        showUndoRequest.value = true;
+        undoRequestText.value = `${data.playerName || '对手'}请求悔棋，是否同意？`;
+        break;
+
+      case 'undo_accepted':
+        gameStore.doUndo();
+        showToast('悔棋成功');
+        break;
+
+      case 'undo_rejected':
+        showToast('对手拒绝悔棋');
+        break;
+
+      case 'room_list':
+        if (onlinePanelRef.value) {
+          onlinePanelRef.value.updateRoomList(data.rooms || []);
+        }
+        break;
+
+      case 'quick_msg':
+        showToast(data.message || '');
+        break;
+
+      case 'emoji':
+        showToast(data.emoji || '');
+        break;
+
+      case 'error':
+        showToast(data.message || '发生错误');
+        break;
+
+      case 'pong':
+        break;
+
+      case 'room_expired':
+        showToast('房间已过期');
+        currentScreen.value = 'menu';
+        break;
+
+      case 'server_shutdown':
+        showToast('服务器即将关闭');
+        break;
+
+      case 'play_again':
+        gameStore.resetGame();
+        isReady.value = false;
+        showWinModal.value = false;
+        readyStatusText.value = '等待双方准备...';
+        break;
+    }
+  });
+}
+
+watch(() => gameStore.isAiTurn, (val) => {
+  if (val && gameStore.isPlaying && !gameStore.isEnding) {
     setTimeout(() => aiMakeMove(), 300);
   }
 });
 
-/**
- * 监听游戏结束
- */
-watch(() => gameStore.isEnding, (isEnding) => {
-  if (isEnding) {
-    const winner = gameStore.currentPlayer === 1 ? '黑方' : '白方';
-    setTimeout(() => {
-      alert(`🎉 ${winner}获胜！`);
-    }, 500);
+watch(() => [gameStore.isPlaying, gameStore.isEnding, gameStore.winningLine], () => {
+  if (!gameStore.isPlaying && !gameStore.isEnding && gameStore.winningLine.length > 0 && gameMode.value !== 'online') {
+    showWinModal.value = true;
   }
-});
+}, { deep: true });
 
 onMounted(() => {
-  // 加载历史记录
-  const saved = localStorage.getItem('gomoku_history');
-  if (saved) {
-    gameHistory.value = JSON.parse(saved);
-  }
+  gameStore.setOnAITurn(() => aiMakeMove());
+});
+
+onUnmounted(() => {
+  aiCleanup();
+  wsStore.disconnect();
 });
 </script>
 
@@ -258,149 +622,22 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
-}
-
-.controls {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.btn {
   padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-warning {
-  background: #f-f39c12;
-  color: #fff;
-}
-
-.btn-danger {
-  background: #e74c3c;
-  color: #fff;
-}
-
-.btn-success {
-  background: #2ecc71;
-  color: #fff;
-}
-
-.btn-primary {
-  background: #3498db;
-  color: #fff;
-}
-
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* 规则弹窗 */
-.rules-panel,
-.history-panel {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
-  z-index: 200;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-}
-
-.rules-content,
-.history-content {
-  background: #2c3e50;
-  padding: 30px;
-  border-radius: 15px;
-  max-width: 500px;
   width: 100%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
 }
 
-.rules-body,
-.history-list {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 10px;
-}
-
-.rules-body h2,
-.history-content h2 {
-  margin-bottom: 20px;
+.score-display {
   text-align: center;
-  color: #3498db;
-}
-
-.rules-body h3 {
-  margin: 15px 0 10px;
-  color: #2ecc71;
-  font-size: 16px;
-}
-
-.rules-body p,
-.rules-body li {
-  color: #ccc;
+  color: #f39c12;
   font-size: 14px;
-  line-height: 1.6;
-  margin-bottom: 8px;
-}
-
-.rules-body ul {
-  padding-left: 20px;
-}
-
-.empty {
-  color: #999;
-  text-align: center;
-  padding: 40px 0;
-}
-
-.menu-btn {
-  width: 100%;
-  padding: 15px;
-  margin-top: 20px;
-  font-size: 16px;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
   font-weight: 600;
-}
-
-.menu-btn.primary {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  color: #fff;
-}
-
-.history-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
   margin-bottom: 8px;
+  padding: 6px 16px;
+  background: rgba(243, 156, 18, 0.1);
+  border-radius: 20px;
 }
 
-.result {
-  color: #2ecc71;
-  font-weight: 600;
+.match-info {
+  color: #3498db;
 }
 </style>
