@@ -36,6 +36,9 @@
           查看棋谱
         </button>
       </div>
+      <div v-if="!readyDisabled" class="button-hint">
+        点击"查看棋谱"后，可以在棋盘下方继续准备
+      </div>
     </div>
   </div>
 </template>
@@ -157,6 +160,16 @@ function onClose() {
 
 .win-content .ready-tips .tip {
   margin: 4px 0;
+}
+
+.win-content .button-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
 }
 
 .button-group {

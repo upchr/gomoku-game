@@ -9,11 +9,13 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const ws = ref<WebSocket | null>(null);
   const connected = ref(false);
   const reconnectAttempts = ref(0);
-  const MAX_RECONNECT = 5;
+  const MAX_RECONNECT = 20; // 增加重连次数
   const roomList = ref<Room[]>([]);
   const pingInterval = ref<ReturnType<typeof setInterval> | null>(null);
+  const savedRoomInfo = ref<{ roomCode: string; myName: string; myUserId: string; isHost: boolean } | null>(null);
 
   let messageHandler: ((data: WebSocketMessage) => void) | null = null;
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
   function connect(url: string = WS_SERVER): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -47,7 +49,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
           stopPing();
           if (reconnectAttempts.value < MAX_RECONNECT) {
             reconnectAttempts.value++;
-            setTimeout(() => connect(url), 3000);
+            // 尝试自动重连并重新加入房间
+            autoReconnect();
+          } else {
+            // 重连次数用完，清理房间信息
+            clearRoomInfo();
           }
         };
 
@@ -180,12 +186,76 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send({ type: 'emoji', emoji });
   }
 
+  function saveRoomInfo(roomCode: string, myName: string, myUserId: string, isHost: boolean) {
+    savedRoomInfo.value = { roomCode, myName, myUserId, isHost };
+    // 保存到localStorage以便刷新页面后恢复
+    try {
+      localStorage.setItem('gomoku-room', JSON.stringify({ roomCode, myName, myUserId, isHost }));
+    } catch (e) {
+      console.error('Failed to save room info:', e);
+    }
+  }
+
+  function clearRoomInfo() {
+    savedRoomInfo.value = null;
+    try {
+      localStorage.removeItem('gomoku-room');
+    } catch (e) {
+      console.error('Failed to clear room info:', e);
+    }
+  }
+
+  function loadRoomInfo() {
+    try {
+      const saved = localStorage.getItem('gomoku-room');
+      if (saved) {
+        const info = JSON.parse(saved);
+        savedRoomInfo.value = info;
+        return info;
+      }
+    } catch (e) {
+      console.error('Failed to load room info:', e);
+    }
+    return null;
+  }
+
+  async function autoReconnect() {
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+
+    const roomInfo = savedRoomInfo.value || loadRoomInfo();
+    if (!roomInfo) {
+      return false;
+    }
+
+    try {
+      await connect();
+      // 重新加入房间
+      send({
+        type: 'rejoin_room',
+        roomCode: roomInfo.roomCode,
+        playerName: roomInfo.myName
+      });
+      return true;
+    } catch (err) {
+      console.error('Auto reconnect failed:', err);
+      // 重试
+      if (reconnectAttempts.value < MAX_RECONNECT) {
+        reconnectTimeout = setTimeout(() => autoReconnect(), 3000);
+      }
+      return false;
+    }
+  }
+
   return {
-    ws, connected, reconnectAttempts, roomList,
+    ws, connected, reconnectAttempts, roomList, savedRoomInfo,
     connect, send, onMessage, disconnect,
     createRoom, joinRoom, getRoomList, rejoinRoom,
     placePiece, requestUndo, acceptUndo, rejectUndo,
     surrender, playAgain, leaveRoom,
-    sendQuickMsg, sendEmoji
+    sendQuickMsg, sendEmoji,
+    saveRoomInfo, clearRoomInfo, loadRoomInfo, autoReconnect
   };
 });

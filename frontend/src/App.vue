@@ -307,8 +307,8 @@ function showOnlineSetup() {
   panels.value.onlineSetup = true;
 }
 
-function showCreateRoom(nickname: string) {
-  gameStore.myName = nickname;
+function showCreateRoom(data: { nickname: string }) {
+  gameStore.myName = data.nickname;
   panels.value.createRoom = true;
 }
 
@@ -466,6 +466,7 @@ function handleExitRoom() {
   if (gameMode.value === 'online') {
     wsStore.leaveRoom();
     wsStore.disconnect();
+    wsStore.clearRoomInfo(); // 清理房间信息
   }
   gameStore.backToMenu();
   aiCleanup();
@@ -525,6 +526,7 @@ function setupWSMessageHandler() {
         gameStore.roomCode = data.roomCode;
         gameStore.isHost = true;
         gameStore.myUserId = data.userId;
+        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, true);
         panels.value.createRoom = false;
         panels.value.onlineSetup = false;
         panels.value.waiting = true;
@@ -535,6 +537,7 @@ function setupWSMessageHandler() {
         gameStore.myColor = data.color;
         gameStore.myUserId = data.userId;
         gameStore.isHost = false;
+        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, false);
         panels.value.onlineSetup = false;
         panels.value.password = false;
 
@@ -596,6 +599,12 @@ function setupWSMessageHandler() {
         readyStatusText.value = '等待双方准备...';
         readyStatusColor.value = '#3498db';
         boardReadyStatusVisible.value = true;
+
+        // 检查比赛是否结束，如果结束则清理房间信息
+        const targetWins = Math.ceil(gameStore.matchMode / 2);
+        if (gameStore.matchWins[1] >= targetWins || gameStore.matchWins[2] >= targetWins) {
+          wsStore.clearRoomInfo();
+        }
         break;
 
       case 'opponent_left':
@@ -635,16 +644,22 @@ function setupWSMessageHandler() {
                 moves: p.moves || 0,
                 undoLeft: p.undoLeft || gameStore.undoLimit
               };
+              // 更新自己的userId
+              if (p.name === gameStore.myName) {
+                gameStore.myUserId = p.id;
+              }
             }
           });
         }
 
-        // 恢复自己的颜色和位置
-        if (data.color) {
-          gameStore.myColor = data.color as Player;
-        }
-        if (data.playerIndex !== undefined) {
-          gameStore.myPlayerIndex = data.playerIndex;
+        // 更新房间信息
+        if (wsStore.savedRoomInfo) {
+          wsStore.saveRoomInfo(
+            wsStore.savedRoomInfo.roomCode,
+            gameStore.myName,
+            gameStore.myUserId,
+            wsStore.savedRoomInfo.isHost
+          );
         }
 
         showToast('重连成功，已恢复游戏状态');
@@ -683,6 +698,10 @@ function setupWSMessageHandler() {
 
       case 'error':
         showToast(data.message || '发生错误');
+        // 如果是房间不存在错误，清理房间信息
+        if (data.message?.includes('房间不存在') || data.message?.includes('未找到玩家')) {
+          wsStore.clearRoomInfo();
+        }
         break;
 
       case 'pong':
@@ -690,6 +709,7 @@ function setupWSMessageHandler() {
 
       case 'room_expired':
         showToast('房间已过期');
+        wsStore.clearRoomInfo();
         currentScreen.value = 'menu';
         break;
 
@@ -779,7 +799,7 @@ watch(() => gameStore.isAiTurn, (val) => {
 });
 
 watch(() => [gameStore.isPlaying, gameStore.isEnding, gameStore.winningLine], () => {
-  if (!gameStore.isPlaying && !gameStore.isEnding && gameStore.winningLine.length > 0 && gameMode.value !== 'online') {
+  if (!gameStore.isPlaying && !gameStore.isEnding && gameStore.winningLine.length > 0) {
     showWinModal.value = true;
   }
 }, { deep: true });
@@ -809,6 +829,13 @@ onMounted(() => {
       }, 100);
     }
   }
+
+  // 检查是否有保存的房间信息（断线重连）
+  const savedRoom = wsStore.loadRoomInfo();
+  if (savedRoom && gameMode.value === 'online') {
+    // 尝试自动重连
+    wsStore.autoReconnect();
+  }
 });
 
 // 监听WebSocket连接状态
@@ -831,6 +858,7 @@ watch(() => wsStore.reconnectAttempts, (attempts) => {
 onUnmounted(() => {
   aiCleanup();
   wsStore.disconnect();
+  wsStore.clearRoomInfo(); // 清理房间信息
 });
 </script>
 
