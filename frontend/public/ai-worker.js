@@ -4,7 +4,7 @@
  */
 
 // 导入 AI 引擎代码
-importScripts('ai.js');
+importScripts(new URL('ai.js', self.location.href).href);
 
 // 接收主线程消息
 self.onmessage = function(e) {
