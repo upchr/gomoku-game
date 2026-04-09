@@ -464,6 +464,7 @@ function handleReady() {
 
 function handleQuickMsg(msg: string) {
   if (gameMode.value === 'online') {
+    gameStore.addChatMessage(msg, 'me', 'text');
     wsStore.sendQuickMsg(msg);
   }
 }
@@ -471,6 +472,7 @@ function handleQuickMsg(msg: string) {
 function handleSendEmoji(emoji: string) {
   showEmojiPopup.value = false;
   if (gameMode.value !== 'online') return;
+  gameStore.addChatMessage(emoji, 'me', 'emoji');
   wsStore.sendEmoji(emoji);
 }
 
@@ -507,15 +509,35 @@ function setupWSMessageHandler() {
         gameStore.isHost = false;
         panels.value.onlineSetup = false;
         panels.value.password = false;
+
+        // 如果已经有对手（房间已满），直接开始游戏
+        if (data.opponent) {
+          const opponentName = data.opponent?.name || '对手';
+          gameStore.opponentName = opponentName;
+          gameStore.undoLimit = data.undoLimit || 3;
+          gameStore.startGame('online', {
+            player1: gameStore.myColor === 1 ? gameStore.myName : opponentName,
+            player2: gameStore.myColor === 2 ? gameStore.myName : opponentName,
+            time: data.time || 300,
+            size: data.size || 15,
+            matchMode: (data.matchMode || 1) as MatchMode
+          });
+          currentScreen.value = 'game';
+        } else {
+          // 否则显示等待面板
+          panels.value.waiting = true;
+        }
         break;
 
       case 'opponent_joined':
-        gameStore.opponentName = data.opponentName;
+        // 服务器发送的是整个 opponent 对象
+        const opponentName = data.opponent?.name || data.opponentName || '对手';
+        gameStore.opponentName = opponentName;
         panels.value.waiting = false;
         gameStore.undoLimit = data.undoLimit || 3;
         gameStore.startGame('online', {
-          player1: gameStore.myColor === 1 ? gameStore.myName : data.opponentName,
-          player2: gameStore.myColor === 2 ? gameStore.myName : data.opponentName,
+          player1: gameStore.myColor === 1 ? gameStore.myName : opponentName,
+          player2: gameStore.myColor === 2 ? gameStore.myName : opponentName,
           time: data.time || 300,
           size: data.size || 15,
           matchMode: (data.matchMode || 1) as MatchMode
@@ -582,10 +604,12 @@ function setupWSMessageHandler() {
         break;
 
       case 'quick_msg':
+        gameStore.addChatMessage(data.message || '', 'opponent', 'text');
         showToast(`${data.playerName || '对手'}: ${data.message || ''}`);
         break;
 
       case 'emoji':
+        gameStore.addChatMessage(data.emoji || '', 'opponent', 'emoji');
         showToast(`${data.playerColor === gameStore.myColor ? '你' : '对手'}: ${data.emoji || ''}`);
         break;
 

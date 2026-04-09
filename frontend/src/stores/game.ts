@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Player, GameMode, Move, PlayerInfo, MatchMode, Difficulty, WinResult, GameHistory } from '@/types/game';
+import type { Player, GameMode, Move, PlayerInfo, MatchMode, Difficulty, WinResult, GameHistory, ChatMessage } from '@/types/game';
 
 export const useGameStore = defineStore('game', () => {
   const board = ref<number[][]>([]);
@@ -37,6 +37,7 @@ export const useGameStore = defineStore('game', () => {
   const opponentName = ref('');
   const boardScale = ref(1);
   const pieceSize = ref(24);
+  const chatMessages = ref<ChatMessage[]>([]);
 
   const timer = ref<ReturnType<typeof setInterval> | null>(null);
   const endGameTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -48,6 +49,24 @@ export const useGameStore = defineStore('game', () => {
   const opponentColor = computed(() => (myColor.value === 1 ? 2 : 1) as Player);
   const isMyTurn = computed(() => currentPlayer.value === myColor.value);
   const isAiTurn = computed(() => aiColor.value !== null && currentPlayer.value === aiColor.value);
+
+  function addChatMessage(text: string, sender: 'me' | 'opponent', type: 'text' | 'emoji' = 'text') {
+    chatMessages.value.push({
+      id: `${Date.now()}-${Math.random()}`,
+      text,
+      sender,
+      type,
+      timestamp: Date.now()
+    });
+    // 限制消息数量，最多保留50条
+    if (chatMessages.value.length > 50) {
+      chatMessages.value = chatMessages.value.slice(-50);
+    }
+  }
+
+  function clearChatMessages() {
+    chatMessages.value = [];
+  }
 
   function initBoard(size: number = 15) {
     boardSize.value = size;
@@ -480,7 +499,7 @@ export const useGameStore = defineStore('game', () => {
     matchMode, matchWins, currentRound, undoLimit, winningLine,
     aiColor, aiDifficulty, showMoveNumbers, matchEnded,
     isHost, myUserId, myPlayerIndex, opponentName,
-    boardScale, pieceSize,
+    boardScale, pieceSize, chatMessages,
     timer, endGameTimeout, aiMoveTimeout, aiWorker,
     aiRequestCounter, currentAiRequestId,
 
@@ -491,6 +510,7 @@ export const useGameStore = defineStore('game', () => {
     startTimer, stopTimer, clearAllTimers,
     initAI, triggerAIMove, setOnAITurn, cleanupAI,
     saveGameHistory, loadGameHistory, clearGameHistory,
-    backToMenu, formatTime, validateNickname, exportGame
+    backToMenu, formatTime, validateNickname, exportGame,
+    addChatMessage, clearChatMessages
   };
 });

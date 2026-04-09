@@ -114,3 +114,11 @@ export interface JoinRoomByCodeData {
   roomCode: string;
   nickname: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'me' | 'opponent';
+  type: 'text' | 'emoji';
+  timestamp: number;
+}

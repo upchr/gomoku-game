@@ -58,6 +58,21 @@
       </button>
     </div>
 
+    <!-- 聊天消息显示 -->
+    <div
+      v-if="gameState.gameMode === 'online' && gameState.chatMessages.length > 0"
+      class="chat-messages"
+    >
+      <div
+        v-for="msg in gameState.chatMessages.slice(-5)"
+        :key="msg.id"
+        :class="['chat-message', msg.sender === 'me' ? 'message-me' : 'message-opponent']"
+      >
+        <span v-if="msg.type === 'text'" class="message-text">{{ msg.text }}</span>
+        <span v-else class="message-emoji">{{ msg.text }}</span>
+      </div>
+    </div>
+
     <div
       v-if="gameState.gameMode === 'online' && gameState.isPlaying"
       class="chat-bar"
@@ -120,8 +135,12 @@ const emojis = [
 ];
 
 const handleClickOutside = (event: MouseEvent) => {
+  if (!props.showEmojiPopup) return; // 如果弹框未显示，不处理
   const target = event.target as HTMLElement;
-  if (!target.closest('.emoji-btn') && !target.closest('.emoji-popup')) {
+  // 检查点击是否在表情按钮或弹框外部
+  const isClickingEmojiBtn = target.closest('.emoji-btn');
+  const isClickingPopup = target.closest('.emoji-popup');
+  if (!isClickingEmojiBtn && !isClickingPopup) {
     emit('toggle-emoji');
   }
 };
@@ -215,6 +234,45 @@ const canUndo = computed(() => {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.chat-message {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  max-width: 80%;
+}
+
+.message-me {
+  align-self: flex-end;
+  background: rgba(52, 152, 219, 0.4);
+}
+
+.message-opponent {
+  align-self: flex-start;
+  background: rgba(46, 204, 113, 0.4);
+}
+
+.message-text {
+  color: #fff;
+}
+
+.message-emoji {
+  font-size: 14px;
 }
 
 .chat-bar {
