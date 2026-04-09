@@ -4,21 +4,21 @@
  */
 
 // 导入 AI 引擎代码
-importScripts(new URL('ai.js', self.location.href).href);
+importScripts('./ai.js');
 
 // 接收主线程消息
 self.onmessage = function(e) {
   const { requestId, board, player, difficulty, boardSize, timeLimit } = e.data;
-  
+
   try {
     // 创建 AI 实例
     const ai = new GomokuAI(difficulty, boardSize);
-    
+
     // 获取最佳走法
     const startTime = Date.now();
     const result = ai.getBestMove(board, player, timeLimit);
     const thinkTime = Date.now() - startTime;
-    
+
     // 返回结果（包含请求 ID）
     self.postMessage({
       requestId: requestId,

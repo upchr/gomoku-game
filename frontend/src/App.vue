@@ -301,6 +301,7 @@ function startAIGame(config: { playerName: string; playerColor: Player; difficul
   gameStore.myColor = config.playerColor;
   gameStore.myName = config.playerName;
   gameStore.aiColor = (config.playerColor === 1 ? 2 : 1) as Player;
+  gameStore.undoLimit = 999;
 
   const aiName = config.difficulty === 'easy' ? 'AI(简单)' : config.difficulty === 'medium' ? 'AI(中等)' : 'AI(困难)';
 
@@ -566,6 +567,7 @@ function setupWSMessageHandler() {
 
       case 'undo_accepted':
         gameStore.doUndo();
+        gameStore.players[gameStore.myColor].undoLeft--;
         showToast('悔棋成功');
         break;
 

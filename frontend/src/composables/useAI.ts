@@ -13,9 +13,9 @@ export function useAI() {
       if (gameStore.aiWorker) {
         gameStore.aiWorker.terminate();
       }
-      const baseUrl = import.meta.env.BASE_URL || '/';
-const workerPath = new URL('ai-worker.js', baseUrl).href;
-gameStore.aiWorker = new Worker(workerPath);
+      const workerUrl = new URL('./ai-worker.js', import.meta.url);
+      console.log('Worker URL:', workerUrl.href);
+      gameStore.aiWorker = new Worker(workerUrl);
       gameStore.aiWorker.onmessage = (e: MessageEvent) => {
         const result = e.data;
         if (result.requestId !== gameStore.currentAiRequestId) return;

@@ -141,6 +141,7 @@ function handleCellClick(row: number, col: number) {
   if (!gameStore.isPlaying || gameStore.isEnding) return;
   if (board.value[row][col] !== 0) return;
   if (gameStore.gameMode === 'online' && gameStore.currentPlayer !== gameStore.myColor) return;
+  if (gameStore.gameMode === 'ai' && gameStore.currentPlayer !== gameStore.myColor) return;
 
   if (previewCell.value && previewCell.value.row === row && previewCell.value.col === col) {
     gameStore.previewCell = null;

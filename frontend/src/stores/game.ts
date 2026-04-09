@@ -208,7 +208,8 @@ export const useGameStore = defineStore('game', () => {
           const playerMove = moveHistory.value.pop()!;
           board.value[playerMove.row][playerMove.col] = 0;
           players.value[playerMove.player].moves--;
-          currentPlayer.value = lastMove.player;
+          players.value[playerMove.player].undoLeft--;
+          currentPlayer.value = playerMove.player;
         }
       }
     } else {
