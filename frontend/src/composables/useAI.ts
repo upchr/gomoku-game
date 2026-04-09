@@ -13,7 +13,8 @@ export function useAI() {
       if (gameStore.aiWorker) {
         gameStore.aiWorker.terminate();
       }
-      const workerPath = new URL('ai-worker.js', import.meta.env.BASE_URL).href;
+      const baseUrl = import.meta.env.BASE_URL || '/';
+const workerPath = new URL('ai-worker.js', baseUrl).href;
 gameStore.aiWorker = new Worker(workerPath);
       gameStore.aiWorker.onmessage = (e: MessageEvent) => {
         const result = e.data;
