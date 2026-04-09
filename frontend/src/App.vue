@@ -24,6 +24,7 @@
         :color="opponentColor"
         :is-me="false"
         :is-current-turn="currentPlayer === opponentColor"
+        :is-a-i-thinking="gameStore.isAiTurn && currentPlayer === opponentColor"
       />
 
       <GameBoard />
@@ -33,6 +34,7 @@
         :color="myColor"
         :is-me="true"
         :is-current-turn="currentPlayer === myColor"
+        :is-a-i-thinking="gameStore.isAiTurn && currentPlayer === myColor"
       />
 
       <GameControls
@@ -124,6 +126,16 @@
       :message="toastMessage"
       :visible="toastVisible"
     />
+
+    <!-- 断线重连UI -->
+    <div v-if="showReconnect" class="reconnect-overlay">
+      <div class="reconnect-content">
+        <div class="reconnect-icon">🔌</div>
+        <h3>连接断开</h3>
+        <p>正在尝试重新连接... ({{ reconnectAttempts }}/5)</p>
+        <div class="reconnect-spinner"></div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -160,6 +172,8 @@ const showWinModal = ref(false);
 const showUndoRequest = ref(false);
 const showEmojiPopup = ref(false);
 const undoRequestText = ref('对手请求悔棋，是否同意？');
+const showReconnect = ref(false);
+const reconnectAttempts = ref(0);
 
 const toastMessage = ref('');
 const toastVisible = ref(false);
@@ -596,6 +610,46 @@ function setupWSMessageHandler() {
         showToast('对手已重连');
         break;
 
+      case 'rejoined':
+        // 隐藏断线重连UI
+        showReconnect.value = false;
+
+        // 恢复棋盘状态
+        if (data.board) {
+          gameStore.board = data.board;
+        }
+        if (data.currentPlayer) {
+          gameStore.currentPlayer = data.currentPlayer as Player;
+        }
+        if (data.moves) {
+          gameStore.moveHistory = data.moves as Move[];
+        }
+
+        // 恢复玩家信息
+        if (data.players) {
+          data.players.forEach((p: any) => {
+            if (p) {
+              gameStore.players[p.color] = {
+                name: p.name,
+                time: p.time,
+                moves: p.moves || 0,
+                undoLeft: p.undoLeft || gameStore.undoLimit
+              };
+            }
+          });
+        }
+
+        // 恢复自己的颜色和位置
+        if (data.color) {
+          gameStore.myColor = data.color as Player;
+        }
+        if (data.playerIndex !== undefined) {
+          gameStore.myPlayerIndex = data.playerIndex;
+        }
+
+        showToast('重连成功，已恢复游戏状态');
+        break;
+
       case 'undo_request':
         showUndoRequest.value = true;
         undoRequestText.value = `${data.playerName || '对手'}请求悔棋，是否同意？`;
@@ -731,6 +785,46 @@ watch(() => [gameStore.isPlaying, gameStore.isEnding, gameStore.winningLine], ()
 
 onMounted(() => {
   gameStore.setOnAITurn(() => aiMakeMove());
+
+  // 检查URL参数，自动加入房间
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomCode = urlParams.get('room');
+  const password = urlParams.get('pwd');
+
+  if (roomCode) {
+    // 自动打开在线对战面板并加入房间
+    showOnlineSetup();
+    // 设置房间码和密码
+    gameStore.pendingRoomCode = roomCode;
+    gameStore.myName = '玩家'; // 使用默认名称
+
+    // 如果有密码，显示密码输入面板
+    if (password) {
+      panels.value.password = true;
+    } else {
+      // 直接尝试加入房间
+      setTimeout(() => {
+        doJoinRoom(roomCode, '玩家');
+      }, 100);
+    }
+  }
+});
+
+// 监听WebSocket连接状态
+watch(() => wsStore.connected, (connected) => {
+  if (!connected && gameMode.value === 'online' && gameStore.isPlaying) {
+    // 在线模式下断线，显示重连UI
+    showReconnect.value = true;
+    reconnectAttempts.value = wsStore.reconnectAttempts;
+  } else if (connected) {
+    // 连接成功，隐藏重连UI
+    showReconnect.value = false;
+  }
+});
+
+// 监听重连次数
+watch(() => wsStore.reconnectAttempts, (attempts) => {
+  reconnectAttempts.value = attempts;
 });
 
 onUnmounted(() => {
@@ -806,6 +900,63 @@ body {
 
 .match-info {
   color: #3498db;
+}
+
+.reconnect-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.reconnect-content {
+  background: #2c3e50;
+  padding: 40px;
+  border-radius: 16px;
+  text-align: center;
+  border: 2px solid #e74c3c;
+}
+
+.reconnect-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.reconnect-content h3 {
+  color: #fff;
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.reconnect-content p {
+  color: #aaa;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.reconnect-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(231, 76, 60, 0.3);
+  border-top: 4px solid #e74c3c;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @media (min-width: 768px) {

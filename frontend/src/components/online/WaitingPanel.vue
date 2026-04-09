@@ -16,14 +16,24 @@
       <p style="text-align: center; color: #aaa; margin-top: 15px; font-size: 13px;">
         等待对手加入<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
       </p>
-      <button class="btn btn-danger" style="width:100%; margin-top: 15px;" @click="cancel">
-        取消
-      </button>
+      <div class="button-row">
+        <button class="btn btn-primary" @click="copyLink">
+          📋 复制链接
+        </button>
+        <button class="btn btn-danger" @click="cancel">
+          取消
+        </button>
+      </div>
+      <p v-if="copySuccess" class="copy-success">
+        ✓ 链接已复制到剪贴板
+      </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+
 interface Props {
   visible: boolean
   roomCode: string
@@ -39,6 +49,45 @@ interface Emits {
 }
 
 const emit = defineEmits<Emits>()
+const copySuccess = ref(false)
+
+function getRoomUrl(): string {
+  const baseUrl = window.location.origin + window.location.pathname;
+  const url = new URL(baseUrl);
+  url.searchParams.set('room', props.roomCode);
+  if (props.password) {
+    url.searchParams.set('pwd', props.password);
+  }
+  return url.toString();
+}
+
+function copyLink() {
+  const url = getRoomUrl();
+  navigator.clipboard.writeText(url).then(() => {
+    copySuccess.value = true;
+    setTimeout(() => {
+      copySuccess.value = false;
+    }, 2000);
+  }).catch(() => {
+    // 降级方案：使用传统方法
+    const textArea = document.createElement('textarea');
+    textArea.value = url;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      copySuccess.value = true;
+      setTimeout(() => {
+        copySuccess.value = false;
+      }, 2000);
+    } catch (err) {
+      console.error('复制失败', err);
+    }
+    document.body.removeChild(textArea);
+  });
+}
 
 function cancel() {
   emit('cancel')
@@ -120,8 +169,42 @@ function cancel() {
   color: #fff;
 }
 
+.btn-primary {
+  background: #3498db;
+  color: #fff;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.button-row .btn {
+  flex: 1;
+}
+
 .btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
+}
+
+.copy-success {
+  text-align: center;
+  color: #2ecc71;
+  font-size: 12px;
+  margin-top: 10px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

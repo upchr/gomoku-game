@@ -2,14 +2,15 @@
   <div class="player-info" :class="{ me: isMe, active: isCurrentTurn }">
     <div class="name">
       <span class="color-icon">{{ colorIcon }}</span>
-      <span class="name-text">{{ player.name }}</span>
+      <span class="name-text">{{ displayName }}</span>
+      <span v-if="isAIThinking" class="ai-thinking">🤔</span>
     </div>
     <div class="stats">
       <span class="time" :class="{ 'time-warning': player.time <= 30 && player.time > 0, 'time-danger': player.time <= 10 }">{{ formatTime(player.time) }}</span>
       <span class="moves">{{ player.moves }}手</span>
       <span class="undo-count">悔{{ player.undoLeft }}</span>
     </div>
-    <div v-if="isCurrentTurn" class="turn-indicator">思考中</div>
+    <div v-if="isCurrentTurn && !isAIThinking" class="turn-indicator">思考中</div>
   </div>
 </template>
 
@@ -22,9 +23,17 @@ const props = defineProps<{
   color: 1 | 2;
   isMe?: boolean;
   isCurrentTurn?: boolean;
+  isAIThinking?: boolean;
 }>();
 
 const colorIcon = computed(() => props.color === 1 ? '⚫' : '⚪');
+
+const displayName = computed(() => {
+  if (props.isAIThinking) {
+    return props.player.name;
+  }
+  return props.player.name;
+});
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -77,6 +86,21 @@ function formatTime(seconds: number): string {
 .name-text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.ai-thinking {
+  font-size: 14px;
+  margin-left: 4px;
+  animation: thinking 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
 }
 
 .stats {
