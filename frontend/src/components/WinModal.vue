@@ -5,16 +5,24 @@
       <div class="winner-name" :style="{ color: winnerColor }">
         {{ winnerText }}
       </div>
-      <div style="margin-bottom: 15px; color: #aaa; font-size: 13px;">
+      <div class="match-result">
         {{ matchResult }}
       </div>
-      <div
-        v-if="showReadyStatus"
-        style="margin-bottom: 10px; color: #3498db; font-size: 12px;"
-        :style="{ color: readyStatusColor }"
-      >
-        {{ readyStatus }}
+
+      <div v-if="showReadyStatus" class="ready-section">
+        <div class="ready-status" :style="{ color: readyStatusColor }">
+          {{ readyStatus }}
+        </div>
+        <div class="ready-tips">
+          <div v-if="!readyDisabled" class="tip">
+            💡 提示：点击"{{ readyButtonText }}"开始下一局
+          </div>
+          <div v-else class="tip">
+            ⏳ 等待对手准备...
+          </div>
+        </div>
       </div>
+
       <div class="button-group">
         <button
           class="btn btn-success"
@@ -118,6 +126,37 @@ function onClose() {
   font-size: 24px;
   margin: 15px 0;
   font-weight: bold;
+}
+
+.win-content .match-result {
+  margin-bottom: 15px;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.win-content .ready-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(52, 152, 219, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.win-content .ready-status {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.win-content .ready-tips {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+.win-content .ready-tips .tip {
+  margin: 4px 0;
 }
 
 .button-group {

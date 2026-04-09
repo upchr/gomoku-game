@@ -244,7 +244,7 @@ const canUndo = computed(() => {
   padding: 6px 10px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 8px;
-  max-height: 100px;
+  height: 150px;
   overflow-y: auto;
 }
 

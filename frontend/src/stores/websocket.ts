@@ -123,7 +123,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       size: config.size,
       matchMode: config.matchMode,
       undoLimit: config.undoLimit,
-      nickname: config.nickname
+      playerName: config.nickname
     });
   }
 
@@ -131,7 +131,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send({
       type: 'join_room',
       roomCode,
-      nickname,
+      playerName: nickname,
       password: password || ''
     });
   }
@@ -140,8 +140,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send({ type: 'get_room_list' });
   }
 
-  function rejoinRoom(roomCode: string, userId: string) {
-    send({ type: 'rejoin_room', roomCode, userId });
+  function rejoinRoom(roomCode: string, userId: string, nickname: string) {
+    send({ type: 'rejoin_room', roomCode, playerName: nickname });
   }
 
   function placePiece(row: number, col: number) {

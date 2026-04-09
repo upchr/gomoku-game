@@ -739,6 +739,7 @@ function setupWSMessageHandler() {
           if (myPlayer) {
             gameStore.myColor = myPlayer.color;
             gameStore.myPlayerIndex = data.players.indexOf(myPlayer);
+            gameStore.myName = myPlayer.name; // 更新自己的名字
             const opponent = data.players.find((p: any) => p && p.color !== myPlayer.color);
             if (opponent) {
               gameStore.opponentName = opponent.name;
