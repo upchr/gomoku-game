@@ -312,6 +312,8 @@ export const useGameStore = defineStore('game', () => {
     stopTimer();
     timer.value = setInterval(() => {
       if (!isPlaying.value) return;
+      // 在线对战模式下，时间由服务器维护，客户端不进行扣时
+      if (gameMode.value === 'online') return;
       players.value[currentPlayer.value].time--;
       if (players.value[currentPlayer.value].time <= 0) {
         const winner = currentPlayer.value === 1 ? 2 : 1;

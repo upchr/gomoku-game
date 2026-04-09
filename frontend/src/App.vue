@@ -588,6 +588,15 @@ function setupWSMessageHandler() {
         if (data.currentPlayer) {
           gameStore.currentPlayer = data.currentPlayer as Player;
         }
+        if (data.players) {
+          data.players.forEach((p: any) => {
+            if (p) {
+              gameStore.players[p.color].time = p.time;
+              gameStore.players[p.color].moves = p.moves;
+              gameStore.players[p.color].undoLeft = p.undoLeft;
+            }
+          });
+        }
         break;
 
       case 'game_over':

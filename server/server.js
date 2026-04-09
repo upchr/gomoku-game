@@ -463,7 +463,13 @@ function handlePlacePiece(ws, data) {
       row, col,
       player: color,
       currentPlayer: room.currentPlayer,
-      board: room.board
+      board: room.board,
+      players: room.players.map(p => p ? {
+        time: p.time,
+        moves: p.moves,
+        undoLeft: p.undoLeft,
+        color: p.color
+      } : null)
     });
   }
 }
@@ -784,6 +790,50 @@ setInterval(() => {
 
 // 清理过期房间
 setInterval(cleanupExpiredRooms, 60000);
+
+// 游戏计时器：每秒更新所有进行中房间的玩家时间
+setInterval(() => {
+  rooms.forEach((room, roomCode) => {
+    if (room.status === 'playing' && room.players[0] && room.players[1]) {
+      // 获取当前执子玩家
+      const currentPlayerIndex = room.players.findIndex(p => p && p.color === room.currentPlayer);
+      if (currentPlayerIndex !== -1) {
+        // 减少当前玩家的时间
+        room.players[currentPlayerIndex].time--;
+        
+        // 检查是否超时
+        if (room.players[currentPlayerIndex].time <= 0) {
+          // 当前玩家超时，判负
+          const winnerColor = room.currentPlayer === 1 ? 2 : 1;
+          
+          // 更新比分
+          const winningPlayer = room.players.find(p => p && p.color === winnerColor);
+          if (winningPlayer) {
+            if (winningPlayer.id === room.hostId) {
+              room.matchWins[1]++;
+            } else {
+              room.matchWins[2]++;
+            }
+          }
+          
+          room.status = 'finished';
+          room.finishedAt = Date.now();
+          room.playAgainRequested = false;
+          
+          broadcastToRoom(roomCode, {
+            type: 'game_over',
+            winner: winnerColor,
+            winningMove: null,
+            board: room.board,
+            matchWins: room.matchWins,
+            reason: 'timeout',
+            timeoutPlayer: room.currentPlayer
+          });
+        }
+      }
+    }
+  });
+}, 1000);
 
 // ==================== 启动服务器 ====================
 server.listen(PORT, () => {
