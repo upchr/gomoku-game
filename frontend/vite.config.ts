@@ -11,6 +11,11 @@ export default defineConfig({
     }
   },
 
+  // 定义环境变量
+  define: {
+    'import.meta.env.VITE_GITHUB_PAGES': JSON.stringify(!!process.env.GITHUB_PAGES)
+  },
+
   base: process.env.GITHUB_PAGES ? '/gomoku-game/' : '/',
 
   build: {

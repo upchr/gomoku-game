@@ -2,7 +2,7 @@
 
 一个功能完整的五子棋游戏，支持本地对战、人机对战和在线对战，具有现代化的界面设计和丰富的功能。
 
-## 功能特性
+## 🌟 功能特性
 
 ### 游戏模式
 - **本地对战**：双人同屏对弈，支持自定义玩家名称
@@ -69,17 +69,25 @@ AI 引擎经过全面审查和优化，修复了 15 个关键问题，包括：
 - **内存占用**：约 50MB（置换表）+ 搜索栈
 - **棋型识别准确率**：100%（连五、活四、冲四、活三等）
 
-## 在线演示
+## 🚀 在线演示
 
 👉 [https://upchr.github.io/gomoku-game/](https://upchr.github.io/gomoku-game/)
 
-## 技术栈
+## 🛠️ 技术栈
 
-### 前端
-- **HTML5**：页面结构和语义化标签
-- **CSS3**：现代 CSS 特性（Flexbox、Grid、动画、渐变）
-- **Vanilla JavaScript**：原生 JavaScript，无框架依赖
+### 前端（Vue 3 版本 - 推荐）
+- **框架**：Vue 3.4+ (Composition API)
+- **构建工具**：Vite 5.x
+- **类型支持**：TypeScript 5.x
+- **状态管理**：Pinia 2.2+
+- **样式**：CSS3（Flexbox、Grid、动画、渐变）
 - **Web Worker**：后台线程执行 AI 计算，避免阻塞 UI
+
+### 前端（原始 HTML 版本 - 已弃用）
+- **HTML5**：页面结构和语义化标签
+- **CSS3**：现代 CSS 特性
+- **Vanilla JavaScript**：原生 JavaScript，无框架依赖
+- **Web Worker**：后台线程执行 AI 计算
 
 ### AI 引擎
 - **算法**：Alpha-Beta 剪枝 + 迭代加深 + PVS（主变搜索）
@@ -102,13 +110,48 @@ AI 引擎经过全面审查和优化，修复了 15 个关键问题，包括：
 - **前端**：GitHub Pages（静态托管）、Docker（nginx）
 - **后端**：Railway（云平台）、Docker（Node.js）
 
-## 本地运行
+## 📦 本地运行
 
-### 前端运行（本地对战）
-直接在浏览器中打开 `index.html` 即可运行本地对战模式。
+### 前端运行（Vue 3 版本 - 推荐）
+
+#### 开发模式
+```bash
+cd frontend
+npm install
+npm run dev
+```
+访问 http://localhost:3000
+
+#### 生产构建
+```bash
+cd frontend
+npm run build
+```
+
+#### 类型检查 + 构建
+```bash
+cd frontend
+npm run build:check
+```
+
+#### 预览构建结果
+```bash
+cd frontend
+npm run preview
+```
+
+### 前端运行（原始 HTML 版本 - 已弃用）
+
+直接在浏览器中打开根目录的 `index.html` 即可运行本地对战模式。
+
+```bash
+# 在项目根目录
+start index.html  # Windows
+open index.html   # macOS
+xdg-open index.html  # Linux
+```
 
 ### 后端运行（在线对战）
-
 
 #### 本地运行
 ```bash
@@ -129,28 +172,51 @@ docker-compose up -d
 - 前端访问：http://localhost:3000
 - WebSocket：自动通过 nginx 代理到后端
 
-## 项目结构
+## 📁 项目结构
 
 ```
 gomoku-game/
-├── index.html          # 前端单页应用（包含 HTML、CSS、JavaScript）
-├── ai.js               # 五子棋 AI 引擎（约 1500 行）
-│                       # - Alpha-Beta 剪枝 + PVS 算法
-│                       # - Zobrist 哈希 + LRU 置换表
-│                       # - 棋型评估和组合棋型检测
-│                       # - 开局库和动态防守权重
-├── ai-worker.js        # Web Worker 包装器（后台 AI 计算）
-├── README.md           # 项目说明文档
-├── AGENTS.md           # 项目上下文文档
-├── docker/             # Docker 部署配置
-│   ├── Dockerfile      # 多阶段构建配置
-│   ├── nginx.conf      # Nginx 配置（前端托管 + WebSocket 代理）
+├── frontend/               # Vue 3 前端项目（推荐）
+│   ├── src/
+│   │   ├── main.ts         # 应用入口
+│   │   ├── App.vue         # 根组件
+│   │   ├── types/          # TypeScript 类型定义
+│   │   ├── stores/         # Pinia 状态管理
+│   │   │   ├── game.ts     # 游戏状态 store
+│   │   │   └── websocket.ts # WebSocket 连接 store
+│   │   ├── components/     # Vue 组件
+│   │   │   ├── game/       # 游戏相关组件
+│   │   │   ├── menu/       # 菜单相关组件
+│   │   │   ├── online/     # 在线对战组件
+│   │   │   └── ...         # 其他组件
+│   │   ├── composables/    # 组合式函数
+│   │   ├── workers/        # Web Worker
+│   │   │   ├── ai.ts       # AI 引擎（TypeScript）
+│   │   │   └── ai-worker.ts # Worker 包装器
+│   │   └── assets/         # 静态资源
+│   ├── public/             # 公共静态资源
+│   ├── index.html          # HTML 入口
+│   ├── package.json        # 前端依赖和脚本
+│   ├── vite.config.ts      # Vite 配置
+│   ├── tsconfig.json       # TypeScript 配置
+│   ├── README.md           # 前端模块说明
+│   ├── MIGRATION_CHECKLIST.md # 迁移清单
+│   └── dist/               # 构建输出目录
+├── index.html              # 原始前端单页应用（已弃用）
+├── ai.js                   # 五子棋 AI 引擎（原始版本）
+├── ai-worker.js            # Web Worker 包装器（原始版本）
+├── README.md               # 项目说明文档（本文件）
+├── AGENTS.md               # 项目上下文文档
+├── 代码分析文档.md          # 详细代码分析文档
+├── docker/                 # Docker 部署配置
+│   ├── Dockerfile          # 多阶段构建配置
+│   ├── nginx.conf          # Nginx 配置
 │   └── docker-compose.yml  # 前后端服务编排
 └── server/
-    ├── server.js       # WebSocket 服务器（房间管理、落子同步等）
-    ├── package.json    # 服务器依赖和脚本配置
-    ├── railway.json    # Railway 部署配置
-    └── README.md       # 服务器部署和 API 文档
+    ├── server.js           # WebSocket 服务器
+    ├── package.json        # 服务器依赖和脚本配置
+    ├── railway.json        # Railway 部署配置
+    └── README.md           # 服务器部署和 API 文档
 ```
 
 ### AI 引擎核心模块
@@ -162,7 +228,7 @@ gomoku-game/
   - 开局库：9 种定式（花月、浦月、云月等）
   - 动态策略：根据局势调整防守权重和时间分配
 
-## 游戏规则
+## 🎮 游戏规则
 
 ### 基本规则
 1. 黑方先行，双方轮流落子
@@ -182,10 +248,27 @@ gomoku-game/
 - 在线对战：需对方同意
 - 悔棋次数有限，用完则无法悔棋
 
-## 许可证
+## 📖 相关文档
+
+- [AGENTS.md](AGENTS.md) - 项目上下文和开发指南
+- [代码分析文档.md](代码分析文档.md) - 详细代码分析文档
+- [frontend/README.md](frontend/README.md) - Vue 3 前端模块说明
+- [server/README.md](server/README.md) - 服务器部署和 API 文档
+
+## 🤝 贡献指南
+
+欢迎贡献！请参考 [AGENTS.md](AGENTS.md) 中的贡献指南。
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+## 📄 许可证
 
 MIT License
 
-## 作者
+## 👤 作者
 
 upchr
