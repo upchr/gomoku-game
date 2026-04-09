@@ -4,7 +4,7 @@ FROM node:18-alpine AS frontend-builder
 WORKDIR /app
 
 # 复制前端 package.json
-COPY frontend/package*.json ./
+COPY frontend/package.json ./
 
 # 安装依赖
 RUN npm install
@@ -12,6 +12,7 @@ RUN npm install
 # 复制前端源代码
 COPY frontend/tsconfig*.json ./
 COPY frontend/vite.config.ts ./
+COPY frontend/index.html ./
 COPY frontend/src ./src
 COPY frontend/public ./public
 
