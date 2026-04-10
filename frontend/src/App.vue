@@ -535,7 +535,6 @@ function handleQuickMsg(msg: string) {
 function handleSendEmoji(emoji: string) {
   showEmojiPopup.value = false;
   if (gameMode.value !== 'online') return;
-  gameStore.addChatMessage(emoji, 'me', 'emoji');
   wsStore.sendEmoji(emoji);
 }
 
@@ -767,8 +766,9 @@ function setupWSMessageHandler() {
         break;
 
       case 'emoji':
-        gameStore.addChatMessage(data.emoji || '', 'opponent', 'emoji');
-        showToast(`${data.playerColor === gameStore.myColor ? '你' : '对手'}: ${data.emoji || ''}`);
+        const isMyEmoji = data.playerColor === gameStore.myColor;
+        gameStore.addChatMessage(data.emoji || '', isMyEmoji ? 'me' : 'opponent', 'emoji');
+        showToast(`${isMyEmoji ? '你' : '对手'}: ${data.emoji || ''}`);
         break;
 
       case 'error':
