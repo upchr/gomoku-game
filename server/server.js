@@ -386,7 +386,7 @@ function handleRejoinRoom(ws, data) {
     board: room.board,
     currentPlayer: room.currentPlayer,
     moves: room.moves,
-    players: room.players.map(p => p ? { name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft } : null),
+    players: room.players.map(p => p ? { name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft, color: p.color } : null),
     playerIndex: playerIndex,  // 添加：告诉前端自己在 players 数组中的位置
     color: room.players[playerIndex].color  // 添加：告诉前端当前的执子颜色
   });
@@ -527,13 +527,22 @@ function handleUndoAccept(ws) {
   const lastPlayerIndex = room.players.findIndex(p => p && p.color === lastMove.player);
   if (lastPlayerIndex !== -1) {
     room.players[lastPlayerIndex].moves--;
+    room.players[lastPlayerIndex].undoLeft--; // 扣减悔棋次数
   }
 
   room.currentPlayer = lastMove.player;
   room.lastActivityAt = Date.now();
   
-  // 通知双方
-  broadcastToRoom(roomCode, { type: 'undo_accepted' });
+  // 通知双方，发送最新的 undoLeft 值
+  broadcastToRoom(roomCode, { 
+    type: 'undo_accepted',
+    players: room.players.map(p => p ? {
+      time: p.time,
+      moves: p.moves,
+      undoLeft: p.undoLeft,
+      color: p.color
+    } : null)
+  });
 }
 
 // 悔棋拒绝

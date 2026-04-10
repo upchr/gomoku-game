@@ -708,7 +708,13 @@ function setupWSMessageHandler() {
 
       case 'undo_accepted':
         gameStore.doUndo();
-        gameStore.players[gameStore.myColor].undoLeft--;
+        if (data.players) {
+          data.players.forEach((p: any) => {
+            if (p) {
+              gameStore.players[p.color].undoLeft = p.undoLeft;
+            }
+          });
+        }
         showToast('悔棋成功');
         break;
 
@@ -874,6 +880,10 @@ onMounted(() => {
     // 恢复自己的颜色
     if (savedRoom.myColor !== undefined) {
       gameStore.myColor = savedRoom.myColor as Player;
+    }
+    // 恢复是否房主
+    if (savedRoom.isHost !== undefined) {
+      gameStore.isHost = savedRoom.isHost;
     }
     // 尝试自动重连
     wsStore.autoReconnect();
