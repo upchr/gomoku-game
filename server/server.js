@@ -742,7 +742,17 @@ function handleLeaveRoom(ws) {
 
   if (isHost) {
     // 房主离开，删除房间
-    broadcastToRoom(roomCode, { type: 'opponent_left', message: '房主已离开房间' }, ws);
+    broadcastToRoom(roomCode, {
+      type: 'opponent_left',
+      message: '房主已离开房间',
+      players: room.players.map(p => p ? {
+        time: p.time,
+        moves: p.moves,
+        undoLeft: p.undoLeft,
+        color: p.color,
+        name: p.name
+      } : null)
+    }, ws);
     rooms.delete(roomCode);
     console.log(`房间 ${roomCode} 已删除（房主主动离开）`);
   } else {

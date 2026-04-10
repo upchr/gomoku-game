@@ -431,6 +431,270 @@ A: 查看 [frontend/README.md](./frontend/README.md) 或 [server/README.md](./se
 
 ---
 
+### 开发环境
+
+#### Node.js 运行基础条件
+
+本项目使用 Node.js 作为后端运行时环境，在开发过程中需要注意以下几点：
+
+**版本要求**:
+- Node.js >= 18
+- 推荐使用 LTS 版本
+
+**默认端口配置**:
+- 前端开发服务器：`3000`（Vite 默认）
+- WebSocket 服务器：`8080`（可通过环境变量 `PORT` 修改）
+
+**进程管理说明**:
+- ⚠️ **重要**：在终止进程时，请优先查找对应端口号的进程，避免误杀其他 Node.js 进程
+- 前端开发服务器（端口 3000）：`cd frontend && npm run dev`
+- WebSocket 服务器（端口 8080）：`cd server && npm start`
+
+**查找和终止进程的正确方法**:
+
+**Windows PowerShell**:
+```powershell
+# 查找占用端口的进程
+netstat -ano | findstr :3000    # 查找前端服务器
+netstat -ano | findstr :8080    # 查找 WebSocket 服务器
+
+# 终止指定 PID 的进程（使用上面查到的 PID）
+taskkill /PID <进程ID> /F
+```
+
+**Windows CMD**:
+```cmd
+# 查找占用端口的进程
+netstat -ano | findstr :3000
+netstat -ano | findstr :8080
+
+# 终止指定 PID 的进程
+taskkill /PID <进程ID> /F
+```
+
+**Linux/macOS**:
+```bash
+# 查找占用端口的进程
+lsof -i :3000    # 查找前端服务器
+lsof -i :8080    # 查找 WebSocket 服务器
+
+# 或使用 netstat
+netstat -tulpn | grep :3000
+netstat -tulpn | grep :8080
+
+# 终止指定 PID 的进程
+kill -9 <进程ID>
+```
+
+**常见错误操作**:
+- ❌ 不要使用 `taskkill /F /IM node.exe`（会杀掉所有 Node.js 进程）
+- ❌ 不要使用 `killall node`（会杀掉所有 Node.js 进程）
+- ✅ 应该先查找对应端口的 PID，然后只终止该进程
+
+**环境变量配置**:
+
+```bash
+
+# 修改 WebSocket 服务器端口
+
+export PORT=9000
+
+cd server && npm start
+
+```
+
+
+
+#### AI 启动前后端进程
+
+
+
+**启动方式**:
+
+
+
+**方式一：分别启动（推荐）**
+
+```powershell
+
+# Windows PowerShell
+
+cd server; npm start
+
+cd frontend; npm run dev
+
+```
+
+
+
+```bash
+
+# Linux/macOS
+
+cd server && npm start &
+
+cd frontend && npm run dev &
+
+```
+
+
+
+**方式二：使用后台任务（适用于 AI 自动化）**
+
+```powershell
+
+# Windows PowerShell - 启动后端
+
+cd server; npm start
+
+
+
+# Windows PowerShell - 启动前端
+
+cd frontend; npm run dev
+
+```
+
+
+
+**启动验证**:
+
+
+
+**后端服务验证**:
+
+```powershell
+
+# 检查端口 8080 是否被占用
+
+netstat -ano | findstr :8080
+
+
+
+# 或使用 curl 测试
+
+curl http://localhost:8080
+
+```
+
+
+
+**前端服务验证**:
+
+```powershell
+
+# 检查端口 3000 是否被占用
+
+netstat -ano | findstr :3000
+
+
+
+# 或在浏览器中访问
+
+# http://localhost:3000
+
+```
+
+
+
+**常见启动问题**:
+
+
+
+1. **端口被占用**
+
+   ```powershell
+
+   # 查找占用端口的进程
+
+   netstat -ano | findstr :8080
+
+   netstat -ano | findstr :3000
+
+
+
+   # 终止进程
+
+   taskkill /PID <进程ID> /F
+
+   ```
+
+
+
+2. **依赖未安装**
+
+   ```powershell
+
+   # 安装后端依赖
+
+   cd server && npm install
+
+
+
+   # 安装前端依赖
+
+   cd frontend && npm install
+
+   ```
+
+
+
+3. **Node.js 版本不匹配**
+
+   ```powershell
+
+   # 检查 Node.js 版本
+
+   node --version
+
+
+
+   # 需要 Node.js >= 18
+
+   ```
+
+
+
+**停止服务**:
+
+
+
+**方式一：使用 Ctrl+C**
+
+- 在启动服务的终端窗口按 `Ctrl+C` 停止服务
+
+
+
+**方式二：查找并终止进程**
+
+```powershell
+
+# 查找前端进程（端口 3000）
+
+netstat -ano | findstr :3000
+
+# 输出示例：TCP    0.0.0.0:3000    0.0.0.0:0    LISTENING    12345
+
+# 终止进程：taskkill /PID 12345 /F
+
+
+
+# 查找后端进程（端口 8080）
+
+netstat -ano | findstr :8080
+
+# 输出示例：TCP    0.0.0.0:8080    0.0.0.0:0    LISTENING    67890
+
+# 终止进程：taskkill /PID 67890 /F
+
+```
+
+
+
+
+
+---
+
 ### 技术问题
 
 ### Q: 如何修改 WebSocket 服务器地址？

@@ -31,26 +31,119 @@
 
 ## 🚀 快速开始
 
+### 环境要求
+
+- **Node.js**: >= 18.0.0
+- **npm**: >= 9.0.0
+- **操作系统**: Windows、macOS、Linux
+
+检查 Node.js 版本：
+```bash
+node --version
+```
+
 ### 安装依赖
+
 ```bash
 npm install
 ```
 
-### 开发模式
+### 启动方式
+
+#### 方式一：开发模式（推荐用于本地开发）
+
 ```bash
 npm run dev
 ```
-访问 http://localhost:3000
 
-### 构建
+**访问地址**：
+- 本地访问：http://localhost:3000/
+- 局域网访问：http://192.168.x.x:3000/（根据实际 IP）
+
+**说明**：
+- 使用 Vite 开发服务器
+- 支持热模块替换（HMR）
+- 实时编译，无需手动重启
+- 适用于开发和调试
+
+#### 方式二：生产构建（用于部署）
+
 ```bash
 npm run build
 ```
 
-### 预览构建
+**说明**：
+- 生成优化的生产构建
+- 输出目录：`dist/`
+- 代码压缩和混淆
+- 适用于部署到生产环境
+
+#### 方式三：预览构建结果
+
 ```bash
 npm run preview
 ```
+
+**访问地址**：http://localhost:4173/
+
+**说明**：
+- 在本地预览生产构建结果
+- 模拟生产环境运行
+- 用于测试生产构建
+
+#### 方式四：类型检查 + 构建（推荐用于发布前）
+
+```bash
+npm run build:check
+```
+
+**说明**：
+- 先进行 TypeScript 类型检查
+- 类型检查通过后再构建
+- 确保代码质量
+
+### 配置 WebSocket 服务器
+
+**开发模式**：
+- 默认连接：`ws://localhost:8080`
+- 需要先启动后端服务器（见后端 README）
+
+**生产环境**：
+- GitHub Pages：自动连接 Railway 服务器
+- Railway：自动连接 Railway 服务器
+- Docker：通过 nginx 代理连接本地后端
+- 自定义：使用 URL 参数 `?ws=ws://自定义地址`
+
+### 常见问题
+
+**Q: 端口 3000 被占用怎么办？**
+A: 修改 `vite.config.ts` 中的端口配置，或使用命令行参数：
+```bash
+npm run dev -- --port 3001
+```
+
+**Q: 如何连接到自定义 WebSocket 服务器？**
+A: 在 URL 中添加参数：
+```
+http://localhost:3000/?ws=ws://your-server:8080
+```
+
+**Q: 依赖安装失败怎么办？**
+A: 尝试清理缓存后重新安装：
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Q: 构建失败怎么办？**
+A: 检查 TypeScript 类型错误：
+```bash
+npm run build:check
+```
+
+### 停止开发服务器
+
+在终端窗口按 `Ctrl+C` 停止开发服务器。
 
 ## 📁 项目结构
 

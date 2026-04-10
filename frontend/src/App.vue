@@ -702,13 +702,16 @@ function setupWSMessageHandler() {
 
       case 'opponent_left':
         showToast(data.message || '对手已离开房间');
-        // 清空游戏状态，重置为等待状态
-        if (gameMode.value === 'online' && gameStore.isPlaying) {
+
+        // 无论 isPlaying 状态如何，都处理对手离开消息
+        if (gameMode.value === 'online') {
+          // 清空游戏状态，重置为等待状态
           gameStore.initBoard(gameStore.boardSize);
           gameStore.currentPlayer = 1;
           gameStore.moveHistory = [];
           gameStore.winningLine = [];
           gameStore.opponentName = '';
+          gameStore.isPlaying = false;
 
           // 从服务器消息中同步房主状态
           if (data.players) {
@@ -722,8 +725,16 @@ function setupWSMessageHandler() {
             });
           }
 
-          gameStore.isPlaying = false;
-          panels.value.opponentLeft = true;  // 显示对手退出面板
+          // 如果是房主（对手是加入者），显示等待面板
+          if (gameStore.isHost) {
+            panels.value.opponentLeft = true;  // 显示对手退出面板
+          } else {
+            // 如果是加入者（对手是房主），房间已删除，清理所有状态
+            wsStore.clearRoomInfo();
+            gameStore.roomCode = '';
+            gameStore.gameMode = 'local';
+            currentScreen.value = 'menu';
+          }
         }
         break;
 
@@ -981,6 +992,10 @@ onMounted(() => {
   console.log('[App onMounted] gameMode === "online":', savedRoom?.gameMode === 'online');
   if (savedRoom && savedRoom.gameMode === 'online') {
     console.log('[App onMounted] 开始自动重连，房间信息:', savedRoom);
+
+    // 重要：先注册消息处理器，否则无法接收到 rejoined 响应
+    setupWSMessageHandler();
+
     // 恢复游戏模式
     gameStore.gameMode = 'online';
     // 恢复自己的颜色
