@@ -213,9 +213,12 @@ function handlePlayerDisconnect(ws) {
   }
 
   // 如果是等待中的房间，房主掉线则删除房间
-  if (room.status === 'waiting' && color === 1) {
-    rooms.delete(roomCode);
-    console.log(`房主掉线，房间 ${roomCode} 已删除`);
+  if (playerIndex !== -1 && room.players[playerIndex] && room.status === 'waiting') {
+    const isHost = room.players[playerIndex].id === room.hostId;
+    if (isHost) {
+      rooms.delete(roomCode);
+      console.log(`房主掉线，房间 ${roomCode} 已删除`);
+    }
   }
 }
 
@@ -368,9 +371,11 @@ function handleJoinRoom(ws, data) {
 
 // 重连房间
 function handleRejoinRoom(ws, data) {
+  console.log('[handleRejoinRoom] 收到重连请求:', JSON.stringify(data));
   const { roomCode, userId } = data;
   const room = rooms.get(roomCode);
 
+  console.log('[handleRejoinRoom] 房间查找结果:', room ? '找到房间' : '房间不存在');
   if (!room) { send(ws, { type: 'error', message: '房间不存在' }); return; }
 
   // 找到该玩家的位置（使用 userId 而不是 playerName）
@@ -382,6 +387,7 @@ function handleRejoinRoom(ws, data) {
     }
   }
 
+  console.log('[handleRejoinRoom] 玩家索引:', playerIndex, 'userId:', userId);
   if (playerIndex === -1) { send(ws, { type: 'error', message: '未找到玩家' }); return; }
 
   // 清除重连定时器
@@ -396,15 +402,17 @@ function handleRejoinRoom(ws, data) {
   // 修复：使用实际的 color 值，而不是 playerIndex+1
   clients.set(ws, { userId: room.players[playerIndex].id, roomCode, color: room.players[playerIndex].color });
 
+  console.log(`准备发送 rejoined 消息给玩家 ${room.players[playerIndex].name}`);
   send(ws, {
     type: 'rejoined',
     board: room.board,
     currentPlayer: room.currentPlayer,
     moves: room.moves,
-    players: room.players.map(p => p ? { name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft, color: p.color } : null),
+    players: room.players.map(p => p ? { id: p.id, name: p.name, time: p.time, moves: p.moves, undoLeft: p.undoLeft, color: p.color } : null),
     playerIndex: playerIndex,  // 添加：告诉前端自己在 players 数组中的位置
     color: room.players[playerIndex].color  // 添加：告诉前端当前的执子颜色
   });
+  console.log(`已发送 rejoined 消息给玩家 ${room.players[playerIndex].name}`);
 
   // 修复：通过玩家位置来找到对手，而不是使用 color 值
   const opponentIndex = playerIndex === 0 ? 1 : 0;
@@ -413,7 +421,7 @@ function handleRejoinRoom(ws, data) {
     send(opponent.ws, { type: 'opponent_reconnected', message: '对手已重连' });
   }
 
-  console.log(`玩家 ${playerName} 重连房间 ${roomCode}`);
+  console.log(`玩家 ${room.players[playerIndex].name} 重连房间 ${roomCode}`);
 }
 
 // 落子
@@ -741,9 +749,46 @@ function handleLeaveRoom(ws) {
     // 加入者离开，不删除房间，只通知房主
     const host = room.players.find(p => p && p.id === room.hostId);
     if (host && host.ws && host.ws.readyState === WebSocket.OPEN) {
-      send(host.ws, { type: 'opponent_left', message: '对手已离开房间' });
+      send(host.ws, {
+        type: 'opponent_left',
+        message: '对手已离开房间，游戏已重置',
+        reason: 'left',
+        players: room.players.map(p => p ? {
+          time: p.time,
+          moves: p.moves,
+          undoLeft: p.undoLeft,
+          color: p.color,
+          name: p.name
+        } : null)
+      });
     }
-    console.log(`玩家 ${userId} 离开房间 ${roomCode}，房间保留`);
+    console.log(`玩家 ${userId} 离开房间 ${roomCode}，房间保留，游戏状态已重置`);
+    
+    // 清理玩家位置，允许新玩家加入
+    const playerIndex = room.players.findIndex(p => p && p.id === userId);
+    if (playerIndex !== -1) {
+      room.players[playerIndex] = null;  // 清空玩家位置
+      
+      // 清空游戏状态，重置为初始状态
+      room.board = [];
+      for (let i = 0; i < room.boardSize; i++) {
+        room.board[i] = [];
+        for (let j = 0; j < room.boardSize; j++) room.board[i][j] = 0;
+      }
+      room.currentPlayer = 1;  // 重置为房主先手
+      room.moves = [];  // 清空走棋记录
+      room.status = 'waiting';  // 重置房间状态为等待
+      room.lastActivityAt = Date.now();
+      
+      // 重置房主状态
+      if (host) {
+        host.time = room.gameTime;  // 重置时间
+        host.moves = 0;  // 重置走棋数
+        host.undoLeft = room.undoLimit;  // 重置悔棋次数
+      }
+      
+      console.log(`房间 ${roomCode} 状态已重置为 waiting，游戏数据已清空`);
+    }
   }
 
   // 清理玩家连接

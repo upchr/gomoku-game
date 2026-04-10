@@ -12,7 +12,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const MAX_RECONNECT = 20; // 增加重连次数
   const roomList = ref<Room[]>([]);
   const pingInterval = ref<ReturnType<typeof setInterval> | null>(null);
-  const savedRoomInfo = ref<{ roomCode: string; myName: string; myUserId: string; isHost: boolean; myColor: number } | null>(null);
+  const savedRoomInfo = ref<{ roomCode: string; myName: string; myUserId: string; isHost: boolean; myColor: number; gameMode: string } | null>(null);
 
   let messageHandler: ((data: WebSocketMessage) => void) | null = null;
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -228,30 +228,62 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   async function autoReconnect() {
+    console.log('[autoReconnect] 开始自动重连');
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
       reconnectTimeout = null;
     }
 
-    const roomInfo = savedRoomInfo.value || loadRoomInfo();
-    if (!roomInfo) {
-      return false;
-    }
-
-    try {
-      await connect();
-      // 重新加入房间
-      send({
+    // 如果已经连接，直接发送重连消息
+    if (connected.value) {
+      console.log('[autoReconnect] 已经连接，直接发送重连消息');
+      const roomInfo = savedRoomInfo.value || loadRoomInfo();
+      if (!roomInfo) {
+        console.log('[autoReconnect] 没有房间信息');
+        return false;
+      }
+      console.log('[autoReconnect] 发送 rejoin_room 消息:', {
+        roomCode: roomInfo.roomCode,
+        userId: roomInfo.myUserId
+      });
+      const result = send({
         type: 'rejoin_room',
         roomCode: roomInfo.roomCode,
         userId: roomInfo.myUserId
       });
+      console.log('[autoReconnect] 发送结果:', result ? '成功' : '失败');
+      return true;
+    }
+
+    const roomInfo = savedRoomInfo.value || loadRoomInfo();
+    console.log('[autoReconnect] 房间信息:', roomInfo);
+    if (!roomInfo) {
+      console.log('[autoReconnect] 没有房间信息');
+      return false;
+    }
+
+    try {
+      console.log('[autoReconnect] 尝试连接 WebSocket');
+      await connect();
+      console.log('[autoReconnect] 连接成功，发送 rejoin_room 消息');
+      // 重新加入房间
+      const result = send({
+        type: 'rejoin_room',
+        roomCode: roomInfo.roomCode,
+        userId: roomInfo.myUserId
+      });
+      console.log('[autoReconnect] 发送结果:', result ? '成功' : '失败');
       return true;
     } catch (err) {
-      console.error('Auto reconnect failed:', err);
+      console.error('[autoReconnect] 连接失败:', err);
       // 重试
       if (reconnectAttempts.value < MAX_RECONNECT) {
         reconnectTimeout = setTimeout(() => autoReconnect(), 3000);
+      } else {
+        // 重连次数用完后，清理房间信息
+        clearRoomInfo();
+        // 触发事件通知前端
+        window.dispatchEvent(new CustomEvent('websocket-reconnect-failed'));
       }
       return false;
     }
