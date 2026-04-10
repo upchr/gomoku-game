@@ -61,32 +61,49 @@ function getRoomUrl(): string {
   return url.toString();
 }
 
-function copyLink() {
+async function copyLink() {
   const url = getRoomUrl();
-  navigator.clipboard.writeText(url).then(() => {
-    copySuccess.value = true;
-    setTimeout(() => {
-      copySuccess.value = false;
-    }, 2000);
-  }).catch(() => {
-    // 降级方案：使用传统方法
-    const textArea = document.createElement('textarea');
-    textArea.value = url;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      document.execCommand('copy');
+
+  try {
+    // 方案 A: 现代 API (HTTPS 环境)
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url);
       copySuccess.value = true;
       setTimeout(() => {
         copySuccess.value = false;
       }, 2000);
-    } catch (err) {
-      console.error('复制失败', err);
+      return;
     }
+
+    // 方案 B: 降级方案（创建临时 textarea）
+    const textArea = document.createElement('textarea');
+    textArea.value = url;
+
+    // 避免滚动跳动和视觉闪烁
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '-9999px';
+    textArea.style.opacity = '0';
+    textArea.setAttribute('readonly', '');
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    const success = document.execCommand('copy');
     document.body.removeChild(textArea);
-  });
+
+    if (success) {
+      copySuccess.value = true;
+      setTimeout(() => {
+        copySuccess.value = false;
+      }, 2000);
+    } else {
+      console.error('复制失败: execCommand 返回 false');
+    }
+  } catch (error) {
+    console.error('复制失败:', error);
+  }
 }
 
 function cancel() {
