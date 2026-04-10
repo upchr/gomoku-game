@@ -25,9 +25,9 @@ services:
     container_name: gomoku-backend
     ports:
       - "8080:8080"
-    environment:
-      - NODE_ENV=production
-      - PORT=8080
+#    environment:
+#      - NODE_ENV=production
+#      - PORT=8080
     networks:
       - gomoku-network
     restart: unless-stopped

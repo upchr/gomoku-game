@@ -1,6 +1,6 @@
 /**
  * 五子棋在线对战 WebSocket 服务器
- * 
+ *
  * 功能：
  * - 房间管理（创建、加入、离开、重连）
  * - 密码验证
@@ -208,7 +208,7 @@ function handlePlayerDisconnect(ws) {
       }
     }, RECONNECT_TIMEOUT);
   }
-  
+
   // 如果是等待中的房间，房主掉线则删除房间
   if (room.status === 'waiting' && color === 1) {
     rooms.delete(roomCode);
@@ -219,12 +219,12 @@ function handlePlayerDisconnect(ws) {
 // 创建房间
 function handleCreateRoom(ws, data) {
   const { playerName, password, gameTime, boardSize, matchMode, undoLimit } = data;
-  
+
   let roomCode;
   do { roomCode = generateRoomCode(); } while (rooms.has(roomCode));
-  
+
   const userId = generateUserId();
-  
+
   const room = {
     code: roomCode,
     password: password || '',
@@ -255,11 +255,11 @@ function handleCreateRoom(ws, data) {
     reconnectTimer: null,
     playAgainRequested: false  // 防止重复处理"再来一局"请求
   };
-  
+
   initBoard(room);
   rooms.set(roomCode, room);
   clients.set(ws, { userId, roomCode, color: 1 });
-  
+
   send(ws, {
     type: 'room_created',
     roomCode,
@@ -268,7 +268,7 @@ function handleCreateRoom(ws, data) {
     matchMode: room.matchMode,
     undoLimit: room.undoLimit
   });
-  
+
   console.log(`房间 ${roomCode} 已创建，创建者: ${playerName}`);
 }
 
@@ -303,13 +303,13 @@ function handleGetRoomList(ws) {
 function handleJoinRoom(ws, data) {
   const { roomCode, playerName, password } = data;
   const room = rooms.get(roomCode);
-  
+
   if (!room) { send(ws, { type: 'error', message: '房间不存在' }); return; }
   if (room.status !== 'waiting') { send(ws, { type: 'error', message: '房间已开始' }); return; }
   if (room.hasPassword && room.password !== password) { send(ws, { type: 'error', message: '密码错误' }); return; }
-  
+
   const userId = generateUserId();
-  
+
   room.players[1] = {
     id: userId,
     name: playerName || '玩家',
@@ -322,9 +322,9 @@ function handleJoinRoom(ws, data) {
   };
   room.status = 'playing';
   room.lastActivityAt = Date.now();
-  
+
   clients.set(ws, { userId, roomCode, color: 2 });
-  
+
   send(ws, {
     type: 'room_joined',
     roomCode,
@@ -336,10 +336,10 @@ function handleJoinRoom(ws, data) {
     matchMode: room.matchMode,
     undoLimit: room.undoLimit
   });
-  
+
   if (room.players[0] && room.players[0].ws) {
-    send(room.players[0].ws, { 
-      type: 'opponent_joined', 
+    send(room.players[0].ws, {
+      type: 'opponent_joined',
       opponent: room.players[1],
       gameTime: room.gameTime,
       boardSize: room.boardSize,
@@ -347,7 +347,7 @@ function handleJoinRoom(ws, data) {
       undoLimit: room.undoLimit
     });
   }
-  
+
   console.log(`玩家 ${playerName} 加入房间 ${roomCode}`);
 }
 
@@ -355,9 +355,9 @@ function handleJoinRoom(ws, data) {
 function handleRejoinRoom(ws, data) {
   const { roomCode, playerName } = data;
   const room = rooms.get(roomCode);
-  
+
   if (!room) { send(ws, { type: 'error', message: '房间不存在' }); return; }
-  
+
   // 找到该玩家的位置
   let playerIndex = -1;
   for (let i = 0; i < room.players.length; i++) {
@@ -366,15 +366,15 @@ function handleRejoinRoom(ws, data) {
       break;
     }
   }
-  
+
   if (playerIndex === -1) { send(ws, { type: 'error', message: '未找到玩家' }); return; }
-  
+
   // 清除重连定时器
   if (room.reconnectTimer) {
     clearTimeout(room.reconnectTimer);
     room.reconnectTimer = null;
   }
-  
+
   // 更新连接
   room.players[playerIndex].ws = ws;
   room.players[playerIndex].disconnectedAt = null;
@@ -397,7 +397,7 @@ function handleRejoinRoom(ws, data) {
   if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
     send(opponent.ws, { type: 'opponent_reconnected', message: '对手已重连' });
   }
-  
+
   console.log(`玩家 ${playerName} 重连房间 ${roomCode}`);
 }
 
@@ -405,18 +405,18 @@ function handleRejoinRoom(ws, data) {
 function handlePlacePiece(ws, data) {
   const client = clients.get(ws);
   if (!client) { send(ws, { type: 'error', message: '未加入房间' }); return; }
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
-  
+
   if (!room || room.status !== 'playing') { send(ws, { type: 'error', message: '游戏未开始' }); return; }
-  
+
   const { row, col } = data;
-  
+
   if (room.currentPlayer !== color) { send(ws, { type: 'error', message: '不是你的回合' }); return; }
   if (row < 0 || row >= room.boardSize || col < 0 || col >= room.boardSize) { send(ws, { type: 'error', message: '无效位置' }); return; }
   if (room.board[row][col] !== 0) { send(ws, { type: 'error', message: '位置已有棋子' }); return; }
-  
+
   room.board[row][col] = color;
   room.moves.push({ row, col, player: color, time: Date.now() });
 
@@ -427,7 +427,7 @@ function handlePlacePiece(ws, data) {
   }
 
   room.lastActivityAt = Date.now();
-  
+
   const winner = checkWin(room.board, row, col, color, room.boardSize);
 
   if (winner) {
@@ -457,7 +457,7 @@ function handlePlacePiece(ws, data) {
     });
   } else {
     room.currentPlayer = room.currentPlayer === 1 ? 2 : 1;
-    
+
     broadcastToRoom(roomCode, {
       type: 'piece_placed',
       row, col,
@@ -476,7 +476,7 @@ function handlePlacePiece(ws, data) {
 
 function checkWin(board, row, col, player, size) {
   const directions = [[[0, 1], [0, -1]], [[1, 0], [-1, 0]], [[1, 1], [-1, -1]], [[1, -1], [-1, 1]]];
-  
+
   for (const dir of directions) {
     let count = 1;
     for (const [dr, dc] of dir) {
@@ -514,10 +514,10 @@ function handleUndoRequest(ws) {
 function handleUndoAccept(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
-  
+
   if (!room || room.status !== 'playing' || room.moves.length === 0) return;
 
   const lastMove = room.moves.pop();
@@ -532,9 +532,9 @@ function handleUndoAccept(ws) {
 
   room.currentPlayer = lastMove.player;
   room.lastActivityAt = Date.now();
-  
+
   // 通知双方，发送最新的 undoLeft 值
-  broadcastToRoom(roomCode, { 
+  broadcastToRoom(roomCode, {
     type: 'undo_accepted',
     players: room.players.map(p => p ? {
       time: p.time,
@@ -563,10 +563,10 @@ function handleUndoReject(ws) {
 function handleSurrender(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
-  
+
   if (!room || room.status !== 'playing') return;
 
   room.status = 'finished';
@@ -705,16 +705,16 @@ function startNewGame(room) {
 function handleLeaveRoom(ws) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   const room = rooms.get(roomCode);
-  
+
   if (room) {
     broadcastToRoom(roomCode, { type: 'opponent_left', message: '对手已离开房间' }, ws);
     rooms.delete(roomCode);
     console.log(`房间 ${roomCode} 已删除（玩家主动离开）`);
   }
-  
+
   clients.delete(ws);
 }
 
@@ -740,7 +740,7 @@ function handleQuickMsg(ws, data) {
 function handleEmoji(ws, data) {
   const client = clients.get(ws);
   if (!client) return;
-  
+
   const { roomCode, color } = client;
   broadcastToRoom(roomCode, { type: 'emoji', emoji: data.emoji, playerColor: color });
 }
@@ -748,11 +748,11 @@ function handleEmoji(ws, data) {
 // WebSocket 连接处理
 wss.on('connection', (ws) => {
   ws.isAlive = true;
-  
+
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
-      
+      console.log("消息："+data)
       switch (data.type) {
         case 'ping': send(ws, { type: 'pong' }); break;
         case 'create_room': handleCreateRoom(ws, data); break;
@@ -768,19 +768,19 @@ wss.on('connection', (ws) => {
         case 'leave_room': handleLeaveRoom(ws); break;
         case 'quick_msg': handleQuickMsg(ws, data); break;
         case 'emoji': handleEmoji(ws, data); break;
-        
-        
+
+
         default: send(ws, { type: 'error', message: '未知消息类型' });
       }
     } catch (err) {
       send(ws, { type: 'error', message: '消息格式错误' });
     }
   });
-  
+
   ws.on('close', () => {
     handlePlayerDisconnect(ws);
   });
-  
+
   ws.on('pong', () => { ws.isAlive = true; });
 });
 
@@ -809,7 +809,7 @@ setInterval(() => {
       if (currentPlayerIndex !== -1) {
         // 减少当前玩家的时间
         room.players[currentPlayerIndex].time--;
-        
+
         // 同步时间给所有客户端
         broadcastToRoom(roomCode, {
           type: 'time_sync',
@@ -819,12 +819,12 @@ setInterval(() => {
           } : null),
           currentPlayer: room.currentPlayer
         });
-        
+
         // 检查是否超时
         if (room.players[currentPlayerIndex].time <= 0) {
           // 当前玩家超时，判负
           const winnerColor = room.currentPlayer === 1 ? 2 : 1;
-          
+
           // 更新比分
           const winningPlayer = room.players.find(p => p && p.color === winnerColor);
           if (winningPlayer) {
@@ -834,11 +834,11 @@ setInterval(() => {
               room.matchWins[2]++;
             }
           }
-          
+
           room.status = 'finished';
           room.finishedAt = Date.now();
           room.playAgainRequested = false;
-          
+
           broadcastToRoom(roomCode, {
             type: 'game_over',
             winner: winnerColor,
