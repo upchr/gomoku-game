@@ -773,6 +773,8 @@ wss.on('connection', (ws) => {
         default: send(ws, { type: 'error', message: '未知消息类型' });
       }
     } catch (err) {
+      console.error('处理消息时发生异常:', err);
+      console.error('异常消息:', message);
       send(ws, { type: 'error', message: '消息格式错误' });
     }
   });
