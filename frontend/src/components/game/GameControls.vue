@@ -315,6 +315,7 @@ const canUndo = computed(() => {
   max-height: 120px;
   overflow-y: auto;
   min-height: 80px;
+  width: 100%;
 }
 
 .chat-message {

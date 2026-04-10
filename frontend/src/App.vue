@@ -664,6 +664,11 @@ function setupWSMessageHandler() {
           gameStore.moveHistory = data.moves as Move[];
         }
 
+        // 恢复自己的颜色（重要！）
+        if (data.color !== undefined) {
+          gameStore.myColor = data.color as Player;
+        }
+
         // 恢复玩家信息
         if (data.players) {
           data.players.forEach((p: any) => {
