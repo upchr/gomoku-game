@@ -151,7 +151,7 @@ function formatTime(seconds: number): string {
 @media (max-width: 767px) {
   .player-info {
     padding: 8px 14px;
-    margin: 0 8px;
+    margin: 1vh 8px;
   }
 
   .name {
@@ -181,7 +181,7 @@ function formatTime(seconds: number): string {
   .player-info {
     padding: 10px 18px;
     gap: 14px;
-    margin: 0 8px;
+    margin: 3vh 8px;
   }
 
   .name {

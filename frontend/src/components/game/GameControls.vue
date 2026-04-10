@@ -2,7 +2,7 @@
   <div>
     <!-- 聊天消息显示 -->
     <div
-      v-if="gameState.gameMode === 'online' && gameState.chatMessages.length > 0"
+      v-if="gameState.gameMode === 'online' "
       class="chat-messages"
     >
       <div
@@ -40,10 +40,10 @@
         class="custom-input"
         @keyup.enter="sendCustomMessage"
       />
-      <button class="btn-send" @click="sendCustomMessage" :disabled="!customMessage.trim()">
+      <button class="btn btn-send" @click="sendCustomMessage" :disabled="!customMessage.trim()">
         发送
       </button>
-      <button class="btn-close" @click="showCustomInput = false">
+      <button class="btn btn-close" @click="showCustomInput = false">
         ✕
       </button>
     </div>
@@ -163,8 +163,10 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const emojis = [
-  '😊', '👍', '👏', '🤔', '😅', '😎',
-  '🎉', '💪', '🙏', '😤', '😱', '💀'
+  '⚫', '⚪', '👍', '👏', '👀', '💀',
+  '↩️', '✅', '❌', '🏳️', '🎉', '⏳',
+  '😊', '😅', '😭', '😅', '😎', '😤',
+  '🤔', '😱', '💪', '🐮', '💩', '🙏',
 ];
 
 const showCustomInput = ref(false);
@@ -218,8 +220,8 @@ const canUndo = computed(() => {
     const lastMove = props.gameState.moveHistory[props.gameState.moveHistory.length - 1];
     const lastMoveIsMine = lastMove && lastMove.player === myColor;
     const isOpponentTurn = currentPlayer !== myColor;
-    
-    return lastMoveIsMine && 
+
+    return lastMoveIsMine &&
            isOpponentTurn &&
            props.gameState.players[myColor].undoLeft > 0 &&
            props.gameState.moveHistory.length > 0;
@@ -315,7 +317,8 @@ const canUndo = computed(() => {
   max-height: 120px;
   overflow-y: auto;
   min-height: 80px;
-  width: 100%;
+  //width: 100%;
+  min-width: 60vw;
 }
 
 .chat-message {
@@ -455,9 +458,7 @@ const canUndo = computed(() => {
 /* 移动端优化 */
 @media (max-width: 767px) {
   .chat-messages {
-    height: 15vh;
-    min-height: 80px;
-    max-height: 100px;
+    height: 2vh;
   }
 
   .chat-message {

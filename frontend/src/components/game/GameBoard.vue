@@ -206,7 +206,7 @@ watch(scale, () => {
   justify-content: center;
   align-items: center;
   flex: 1;
-  min-height: 0;
+  min-height: 50vh;
   overflow: hidden;
   padding: 2px 0;
 }

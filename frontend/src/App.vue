@@ -123,6 +123,18 @@
       @reject="rejectUndo"
     />
 
+    <SurrenderConfirmModal
+      :visible="surrenderConfirmVisible"
+      @confirm="confirmSurrender"
+      @cancel="cancelSurrender"
+    />
+
+    <ExitConfirmModal
+      :visible="exitConfirmVisible"
+      @confirm="confirmExit"
+      @cancel="cancelExit"
+    />
+
     <Toast
       :message="toastMessage"
       :visible="toastVisible"
@@ -161,6 +173,8 @@ import RulesPanel from '@/components/RulesPanel.vue';
 import HistoryPanel from '@/components/HistoryPanel.vue';
 import WinModal from '@/components/WinModal.vue';
 import UndoRequestModal from '@/components/UndoRequestModal.vue';
+import SurrenderConfirmModal from '@/components/SurrenderConfirmModal.vue';
+import ExitConfirmModal from '@/components/ExitConfirmModal.vue';
 import Toast from '@/components/Toast.vue';
 
 const gameStore = useGameStore();
@@ -179,6 +193,8 @@ const reconnectAttempts = ref(0);
 const toastMessage = ref('');
 const toastVisible = ref(false);
 let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+const surrenderConfirmVisible = ref(false);
+const exitConfirmVisible = ref(false);
 
 const onlinePanelRef = ref<any>(null);
 const createRoomPassword = ref('');
@@ -434,7 +450,11 @@ function handleUndo() {
 }
 
 function handleSurrender() {
-  if (!confirm('确定要认输吗？')) return;
+  surrenderConfirmVisible.value = true;
+}
+
+function confirmSurrender() {
+  surrenderConfirmVisible.value = false;
   if (gameMode.value === 'online') {
     wsStore.surrender();
   } else {
@@ -442,6 +462,10 @@ function handleSurrender() {
     gameStore.matchWins[winner as Player]++;
     gameStore.endGame(winner as Player);
   }
+}
+
+function cancelSurrender() {
+  surrenderConfirmVisible.value = false;
 }
 
 function handlePlayAgain() {
@@ -464,6 +488,11 @@ function handlePlayAgain() {
 }
 
 function handleExitRoom() {
+  exitConfirmVisible.value = true;
+}
+
+function confirmExit() {
+  exitConfirmVisible.value = false;
   if (gameMode.value === 'online') {
     wsStore.leaveRoom();
     wsStore.disconnect();
@@ -478,6 +507,10 @@ function handleExitRoom() {
   boardReadyStatusVisible.value = false;
   readyStatusText.value = '等待双方准备...';
   readyStatusColor.value = '#3498db';
+}
+
+function cancelExit() {
+  exitConfirmVisible.value = false;
 }
 
 function handleReady() {
@@ -1049,7 +1082,7 @@ body {
   }
   .score-display {
     font-size: 11px;
-    margin-bottom: 2px;
+    margin-top: 10px;
     padding: 3px 8px;
   }
   .board-ready-status {
@@ -1065,7 +1098,8 @@ body {
   }
   .score-display {
     font-size: 14px;
-    margin-bottom: 8px;
+    margin-top: 10px;
+
     padding: 6px 16px;
   }
 }
