@@ -12,7 +12,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const MAX_RECONNECT = 20; // 增加重连次数
   const roomList = ref<Room[]>([]);
   const pingInterval = ref<ReturnType<typeof setInterval> | null>(null);
-  const savedRoomInfo = ref<{ roomCode: string; myName: string; myUserId: string; isHost: boolean } | null>(null);
+  const savedRoomInfo = ref<{ roomCode: string; myName: string; myUserId: string; isHost: boolean; myColor: number } | null>(null);
 
   let messageHandler: ((data: WebSocketMessage) => void) | null = null;
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -190,11 +190,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send({ type: 'quick_msg', message });
   }
 
-  function saveRoomInfo(roomCode: string, myName: string, myUserId: string, isHost: boolean) {
-    savedRoomInfo.value = { roomCode, myName, myUserId, isHost };
+  function saveRoomInfo(roomCode: string, myName: string, myUserId: string, isHost: boolean, myColor: number) {
+    savedRoomInfo.value = { roomCode, myName, myUserId, isHost, myColor };
     // 保存到localStorage以便刷新页面后恢复
     try {
-      localStorage.setItem('gomoku-room', JSON.stringify({ roomCode, myName, myUserId, isHost }));
+      localStorage.setItem('gomoku-room', JSON.stringify({ roomCode, myName, myUserId, isHost, myColor }));
     } catch (e) {
       console.error('Failed to save room info:', e);
     }

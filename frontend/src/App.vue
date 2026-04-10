@@ -535,7 +535,7 @@ function setupWSMessageHandler() {
         gameStore.myColor = 1; // 房主是黑棋
         gameStore.isHost = true;
         gameStore.myUserId = data.userId;
-        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, true);
+        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, true, 1);
         panels.value.createRoom = false;
         panels.value.onlineSetup = false;
         panels.value.waiting = true;
@@ -546,7 +546,7 @@ function setupWSMessageHandler() {
         gameStore.myColor = data.color;
         gameStore.myUserId = data.userId;
         gameStore.isHost = false;
-        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, false);
+        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, false, data.color);
         panels.value.onlineSetup = false;
         panels.value.password = false;
 
@@ -693,7 +693,8 @@ function setupWSMessageHandler() {
             wsStore.savedRoomInfo.roomCode,
             gameStore.myName,
             gameStore.myUserId,
-            wsStore.savedRoomInfo.isHost
+            wsStore.savedRoomInfo.isHost,
+            gameStore.myColor
           );
         }
 
@@ -870,6 +871,10 @@ onMounted(() => {
   // 检查是否有保存的房间信息（断线重连）
   const savedRoom = wsStore.loadRoomInfo();
   if (savedRoom && gameMode.value === 'online') {
+    // 恢复自己的颜色
+    if (savedRoom.myColor !== undefined) {
+      gameStore.myColor = savedRoom.myColor as Player;
+    }
     // 尝试自动重连
     wsStore.autoReconnect();
   }
