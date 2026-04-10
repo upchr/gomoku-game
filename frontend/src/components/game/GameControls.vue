@@ -213,7 +213,14 @@ const canUndo = computed(() => {
   }
 
   if (props.gameState.gameMode === 'online') {
-    return isMyTurn &&
+    // 在线对战悔棋规则：只能在自己落子后、对方落子前悔棋
+    // 即：最后一手棋是自己下的，并且轮到对方
+    const lastMove = props.gameState.moveHistory[props.gameState.moveHistory.length - 1];
+    const lastMoveIsMine = lastMove && lastMove.player === myColor;
+    const isOpponentTurn = currentPlayer !== myColor;
+    
+    return lastMoveIsMine && 
+           isOpponentTurn &&
            props.gameState.players[myColor].undoLeft > 0 &&
            props.gameState.moveHistory.length > 0;
   }

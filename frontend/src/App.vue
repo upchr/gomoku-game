@@ -45,6 +45,7 @@
         @undo="handleUndo"
         @surrender="handleSurrender"
         @play-again="handlePlayAgain"
+        @ready="handleReady"
         @toggle-numbers="gameStore.showMoveNumbers = !gameStore.showMoveNumbers"
         @export-game="exportGame"
         @exit-room="handleExitRoom"
@@ -531,6 +532,7 @@ function setupWSMessageHandler() {
     switch (data.type) {
       case 'room_created':
         gameStore.roomCode = data.roomCode;
+        gameStore.myColor = 1; // 房主是黑棋
         gameStore.isHost = true;
         gameStore.myUserId = data.userId;
         wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, true);
@@ -619,6 +621,19 @@ function setupWSMessageHandler() {
         // 检查比赛是否结束，如果结束则清理房间信息
         if (gameStore.matchWins[1] >= Math.ceil(gameStore.matchMode / 2) || gameStore.matchWins[2] >= Math.ceil(gameStore.matchMode / 2)) {
           wsStore.clearRoomInfo();
+        }
+        break;
+
+      case 'time_sync':
+        if (data.players) {
+          data.players.forEach((p: any) => {
+            if (p) {
+              gameStore.players[p.color].time = p.time;
+            }
+          });
+        }
+        if (data.currentPlayer) {
+          gameStore.currentPlayer = data.currentPlayer as Player;
         }
         break;
 

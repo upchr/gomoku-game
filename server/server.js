@@ -801,6 +801,16 @@ setInterval(() => {
         // 减少当前玩家的时间
         room.players[currentPlayerIndex].time--;
         
+        // 同步时间给所有客户端
+        broadcastToRoom(roomCode, {
+          type: 'time_sync',
+          players: room.players.map(p => p ? {
+            time: p.time,
+            color: p.color
+          } : null),
+          currentPlayer: room.currentPlayer
+        });
+        
         // 检查是否超时
         if (room.players[currentPlayerIndex].time <= 0) {
           // 当前玩家超时，判负
