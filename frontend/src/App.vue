@@ -567,7 +567,7 @@ function setupWSMessageHandler() {
         gameStore.myColor = 1; // 房主是黑棋
         gameStore.isHost = true;
         gameStore.myUserId = data.userId;
-        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, true, 1);
+        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, true, 1, gameMode.value);
         panels.value.createRoom = false;
         panels.value.onlineSetup = false;
         panels.value.waiting = true;
@@ -578,7 +578,7 @@ function setupWSMessageHandler() {
         gameStore.myColor = data.color;
         gameStore.myUserId = data.userId;
         gameStore.isHost = false;
-        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, false, data.color);
+        wsStore.saveRoomInfo(data.roomCode, gameStore.myName, data.userId, false, data.color, gameMode.value);
         panels.value.onlineSetup = false;
         panels.value.password = false;
 
@@ -726,7 +726,8 @@ function setupWSMessageHandler() {
             gameStore.myName,
             gameStore.myUserId,
             wsStore.savedRoomInfo.isHost,
-            gameStore.myColor
+            gameStore.myColor,
+            gameMode.value
           );
         }
 
@@ -773,9 +774,15 @@ function setupWSMessageHandler() {
 
       case 'error':
         showToast(data.message || '发生错误');
-        // 如果是房间不存在错误，清理房间信息
+        // 如果是房间不存在错误，清理房间信息并返回菜单
         if (data.message?.includes('房间不存在') || data.message?.includes('未找到玩家')) {
           wsStore.clearRoomInfo();
+          // 如果在游戏中，返回菜单
+          if (gameMode.value === 'online' && (gameStore.isPlaying || currentScreen.value === 'game')) {
+            gameStore.backToMenu();
+            currentScreen.value = 'menu';
+            showReconnect.value = false;
+          }
         }
         break;
 
@@ -901,15 +908,15 @@ onMounted(() => {
       panels.value.password = true;
     } else {
       // 直接尝试加入房间
-      setTimeout(() => {
-        doJoinRoom(roomCode, '玩家');
-      }, 100);
+      doJoinRoom(roomCode, '玩家', password);
     }
   }
 
-  // 检查是否有保存的房间信息（断线重连）
+  // 检查是否有保存的房间信息，尝试自动重连
   const savedRoom = wsStore.loadRoomInfo();
-  if (savedRoom && gameMode.value === 'online') {
+  if (savedRoom && savedRoom.gameMode === 'online') {
+    // 恢复游戏模式
+    gameMode.value = 'online';
     // 恢复自己的颜色
     if (savedRoom.myColor !== undefined) {
       gameStore.myColor = savedRoom.myColor as Player;
@@ -944,7 +951,20 @@ onUnmounted(() => {
   aiCleanup();
   wsStore.disconnect();
   wsStore.clearRoomInfo(); // 清理房间信息
+  // 移除重连失败事件监听
+  window.removeEventListener('websocket-reconnect-failed', handleReconnectFailed);
 });
+
+// 监听 WebSocket 重连失败事件
+function handleReconnectFailed() {
+  if (gameMode.value === 'online' && (gameStore.isPlaying || currentScreen.value === 'game')) {
+    showToast('连接已断开，请刷新页面重新连接');
+    showReconnect.value = false;
+  }
+}
+
+// 添加重连失败事件监听
+window.addEventListener('websocket-reconnect-failed', handleReconnectFailed);
 </script>
 
 <style>

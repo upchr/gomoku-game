@@ -206,6 +206,9 @@ function handlePlayerDisconnect(ws) {
 
         console.log(`玩家 ${disconnectedPlayer?.name || color} 掉线超时，房间 ${roomCode} 结束，比分 ${room.matchWins[1]}:${room.matchWins[2]}`);
       }
+
+      // 清理重连定时器
+      room.reconnectTimer = null;
     }, RECONNECT_TIMEOUT);
   }
 
@@ -365,15 +368,15 @@ function handleJoinRoom(ws, data) {
 
 // 重连房间
 function handleRejoinRoom(ws, data) {
-  const { roomCode, playerName } = data;
+  const { roomCode, userId } = data;
   const room = rooms.get(roomCode);
 
   if (!room) { send(ws, { type: 'error', message: '房间不存在' }); return; }
 
-  // 找到该玩家的位置
+  // 找到该玩家的位置（使用 userId 而不是 playerName）
   let playerIndex = -1;
   for (let i = 0; i < room.players.length; i++) {
-    if (room.players[i] && room.players[i].name === playerName) {
+    if (room.players[i] && room.players[i].id === userId) {
       playerIndex = i;
       break;
     }
@@ -718,13 +721,36 @@ function handleLeaveRoom(ws) {
   const client = clients.get(ws);
   if (!client) return;
 
-  const { roomCode, color } = client;
+  const { roomCode, userId } = client;
   const room = rooms.get(roomCode);
 
-  if (room) {
-    broadcastToRoom(roomCode, { type: 'opponent_left', message: '对手已离开房间' }, ws);
+  if (!room) {
+    clients.delete(ws);
+    return;
+  }
+
+  // 判断是否是房主
+  const isHost = userId === room.hostId;
+
+  if (isHost) {
+    // 房主离开，删除房间
+    broadcastToRoom(roomCode, { type: 'opponent_left', message: '房主已离开房间' }, ws);
     rooms.delete(roomCode);
-    console.log(`房间 ${roomCode} 已删除（玩家主动离开）`);
+    console.log(`房间 ${roomCode} 已删除（房主主动离开）`);
+  } else {
+    // 加入者离开，不删除房间，只通知房主
+    const host = room.players.find(p => p && p.id === room.hostId);
+    if (host && host.ws && host.ws.readyState === WebSocket.OPEN) {
+      send(host.ws, { type: 'opponent_left', message: '对手已离开房间' });
+    }
+    console.log(`玩家 ${userId} 离开房间 ${roomCode}，房间保留`);
+  }
+
+  // 清理玩家连接
+  const playerIndex = room.players.findIndex(p => p && p.id === userId);
+  if (playerIndex !== -1) {
+    room.players[playerIndex].ws = null;
+    room.players[playerIndex].disconnectedAt = Date.now();
   }
 
   clients.delete(ws);

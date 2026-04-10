@@ -54,6 +54,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
           } else {
             // 重连次数用完，清理房间信息
             clearRoomInfo();
+            // 通知用户重连失败
+            console.error('重连失败，请刷新页面重新连接');
+            // 触发自定义事件，通知 UI 层
+            window.dispatchEvent(new CustomEvent('websocket-reconnect-failed'));
           }
         };
 
@@ -190,11 +194,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send({ type: 'quick_msg', message });
   }
 
-  function saveRoomInfo(roomCode: string, myName: string, myUserId: string, isHost: boolean, myColor: number) {
-    savedRoomInfo.value = { roomCode, myName, myUserId, isHost, myColor };
+  function saveRoomInfo(roomCode: string, myName: string, myUserId: string, isHost: boolean, myColor: number, gameMode: string) {
+    savedRoomInfo.value = { roomCode, myName, myUserId, isHost, myColor, gameMode };
     // 保存到localStorage以便刷新页面后恢复
     try {
-      localStorage.setItem('gomoku-room', JSON.stringify({ roomCode, myName, myUserId, isHost, myColor }));
+      localStorage.setItem('gomoku-room', JSON.stringify({ roomCode, myName, myUserId, isHost, myColor, gameMode }));
     } catch (e) {
       console.error('Failed to save room info:', e);
     }
@@ -240,7 +244,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       send({
         type: 'rejoin_room',
         roomCode: roomInfo.roomCode,
-        playerName: roomInfo.myName
+        userId: roomInfo.myUserId
       });
       return true;
     } catch (err) {
