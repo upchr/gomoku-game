@@ -751,8 +751,8 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     try {
+      console.log("消息："+message)
       const data = JSON.parse(message);
-      console.log("消息："+data)
       switch (data.type) {
         case 'ping': send(ws, { type: 'pong' }); break;
         case 'create_room': handleCreateRoom(ws, data); break;
