@@ -2,6 +2,19 @@
 
 一个功能完整的五子棋游戏，支持本地对战、人机对战和在线对战，具有现代化的界面设计和丰富的功能。
 
+## 📚 相关文档
+
+| 文档名称 | 说明 |
+|---------|------|
+| **项目上下文** | [AGENTS.md](./AGENTS.md) - 项目概述、技术栈、开发约定、常见问题 |
+| **代码分析** | [代码分析文档.md](./代码分析文档.md) - 详细代码实现分析、算法详解、对战模式逻辑 |
+| **问题记录** | [问题记录与解决方案.md](./问题记录与解决方案.md) - 已知问题、bug 修复记录、解决方案 |
+| **迁移清单** | [frontend/MIGRATION_CHECKLIST.md](./frontend/MIGRATION_CHECKLIST.md) - 从 HTML 迁移到 Vue 3 的完整检查清单 |
+| **前端文档** | [frontend/README.md](./frontend/README.md) - 前端开发文档、构建、部署 |
+| **服务器文档** | [server/README.md](./server/README.md) - 服务器 API 文档、部署配置 |
+
+---
+
 ## 🌟 功能特性
 
 ### 游戏模式
@@ -142,14 +155,16 @@ npm run preview
 
 ### 前端运行（原始 HTML 版本 - 已弃用）
 
-直接在浏览器中打开根目录的 `index.html` 即可运行本地对战模式。
+原始 HTML 版本已移至 `oldweb.disabled/` 文件夹，不再推荐使用。直接在浏览器中打开该文件夹中的 `index.html` 即可运行本地对战模式。
 
 ```bash
 # 在项目根目录
-start index.html  # Windows
-open index.html   # macOS
-xdg-open index.html  # Linux
+start oldweb.disabled\index.html  # Windows
+open oldweb.disabled/index.html   # macOS
+xdg-open oldweb.disabled/index.html  # Linux
 ```
+
+> ⚠️ 注意：旧版本已弃用，建议使用 Vue 3 版本进行开发和部署。
 
 ### 后端运行（在线对战）
 
@@ -202,12 +217,15 @@ gomoku-game/
 │   ├── README.md           # 前端模块说明
 │   ├── MIGRATION_CHECKLIST.md # 迁移清单
 │   └── dist/               # 构建输出目录
-├── index.html              # 原始前端单页应用（已弃用）
-├── ai.js                   # 五子棋 AI 引擎（原始版本）
-├── ai-worker.js            # Web Worker 包装器（原始版本）
+├── oldweb.disabled/        # 旧版本前端（已弃用，仅保留用于参考）
+│   ├── index.html          # 原始前端单页应用（HTML + CSS + JS）
+│   ├── ai.js               # 五子棋 AI 引擎（Alpha-Beta 剪枝算法）
+│   ├── ai-worker.js        # Web Worker 包装器
+│   └── 404.html            # SPA 路由支持
 ├── README.md               # 项目说明文档（本文件）
 ├── AGENTS.md               # 项目上下文文档
 ├── 代码分析文档.md          # 详细代码分析文档
+├── 问题记录与解决方案.md   # 问题记录和解决方案
 ├── docker/                 # Docker 部署配置
 │   ├── Dockerfile          # 多阶段构建配置
 │   ├── nginx.conf          # Nginx 配置

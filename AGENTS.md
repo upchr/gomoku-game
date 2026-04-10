@@ -1,5 +1,21 @@
 # 五子棋在线对战平台 - 项目上下文
 
+## 📚 相关文档
+
+本项目包含以下文档，方便开发和维护：
+
+| 文档名称 | 路径 | 说明 |
+|---------|------|------|
+| **项目上下文** | [AGENTS.md](./AGENTS.md) | 本文档，项目概述、技术栈、开发约定 |
+| **代码分析** | [代码分析文档.md](./代码分析文档.md) | 详细代码实现分析、算法详解、对战模式逻辑 |
+| **问题记录** | [问题记录与解决方案.md](./问题记录与解决方案.md) | 已知问题、bug 修复记录、解决方案 |
+| **迁移清单** | [frontend/MIGRATION_CHECKLIST.md](./frontend/MIGRATION_CHECKLIST.md) | 从 HTML 迁移到 Vue 3 的完整检查清单 |
+| **项目说明** | [README.md](./README.md) | 项目简介、快速开始、部署指南 |
+| **前端文档** | [frontend/README.md](./frontend/README.md) | 前端开发文档、构建、部署 |
+| **服务器文档** | [server/README.md](./server/README.md) | 服务器 API 文档、部署配置 |
+
+---
+
 ## 项目概述
 
 一个功能完整的五子棋在线对战平台，支持本地对战、人机对战和在线多人对战。项目采用前后端分离架构，**前端已升级为 Vue 3 + TypeScript + Vite 现代化架构**，后端使用 Node.js + WebSocket 提供实时通信服务。
@@ -44,13 +60,10 @@
 
 ```
 gomoku-game/
-├── index.html          # 原始前端单页应用（已弃用，保留用于参考）
-├── ai.js               # 五子棋 AI 引擎（Alpha-Beta 剪枝算法）
-├── ai-worker.js        # Web Worker 包装器（已弃用，改用 TypeScript 版本）
 ├── README.md           # 项目说明文档
 ├── AGENTS.md           # 项目上下文文档（本文件）
 ├── 代码分析文档.md      # 详细代码分析文档
-├── 404.html            # SPA 路由支持
+├── 问题记录与解决方案.md # 问题记录和解决方案
 ├── .gitignore          # Git 忽略配置
 ├── docker/             # Docker 部署配置
 │   ├── Dockerfile      # 多阶段构建配置
@@ -109,9 +122,14 @@ gomoku-game/
     ├── package.json          # 服务器依赖和脚本配置
     ├── railway.json          # Railway 部署配置
     └── README.md             # 服务器部署和 API 文档
+└── oldweb.disabled/          # 旧版本前端（已弃用，仅保留用于参考）
+    ├── index.html            # 原始前端单页应用（HTML + CSS + JS）
+    ├── ai.js                 # 五子棋 AI 引擎（Alpha-Beta 剪枝算法）
+    ├── ai-worker.js          # Web Worker 包装器
+    └── 404.html              # SPA 路由支持
 ```
 
-**当前版本**: v4.0.0 (Vue 3 重构版)
+**当前版本**: v5.2.0 (Vue 3 重构版)
 
 ## 构建和运行
 
@@ -145,14 +163,16 @@ npm run preview
 
 ### 前端运行（旧版本：原始 HTML）
 
-直接在浏览器中打开根目录的 `index.html` 即可运行本地对战模式。
+原始 HTML 版本已移至 `oldweb.disabled/` 文件夹，不再推荐使用。直接在浏览器中打开该文件夹中的 `index.html` 即可运行本地对战模式。
 
 ```bash
 # 在项目根目录
-start index.html  # Windows
-open index.html   # macOS
-xdg-open index.html  # Linux
+start oldweb.disabled\index.html  # Windows
+open oldweb.disabled/index.html   # macOS
+xdg-open oldweb.disabled/index.html  # Linux
 ```
+
+> ⚠️ 注意：旧版本已弃用，建议使用 Vue 3 版本进行开发和部署。
 
 ### 后端运行（在线对战）
 
@@ -395,11 +415,29 @@ AI 搜索深度和时间限制根据棋盘大小和难度动态调整：
 
 ## 常见问题
 
+### 📖 文档相关
+
+**Q: 想了解详细的代码实现和算法原理？**
+A: 查看 [代码分析文档.md](./代码分析文档.md)，包含详细的代码实现分析、AI 算法详解、对战模式逻辑等。
+
+**Q: 遇到问题或想知道已知的 bug？**
+A: 查看 [问题记录与解决方案.md](./问题记录与解决方案.md)，记录了所有已知问题和解决方案。
+
+**Q: 想了解从 HTML 迁移到 Vue 3 的过程？**
+A: 查看 [frontend/MIGRATION_CHECKLIST.md](./frontend/MIGRATION_CHECKLIST.md)，完整的迁移检查清单。
+
+**Q: 想了解前端或服务器的部署细节？**
+A: 查看 [frontend/README.md](./frontend/README.md) 或 [server/README.md](./server/README.md)。
+
+---
+
+### 技术问题
+
 ### Q: 如何修改 WebSocket 服务器地址？
 A: Docker 部署时自动配置，其他部署方式可通过 URL 参数覆盖：`?ws=ws://自定义地址`
 
 ### Q: Vue 3 版本和旧 HTML 版本有什么区别？
-A: Vue 3 版本是现代化重构，使用组件化架构、TypeScript 类型安全、Pinia 状态管理，代码更易维护和扩展。旧版本仍保留在根目录 `index.html` 中。
+A: Vue 3 版本是现代化重构，使用组件化架构、TypeScript 类型安全、Pinia 状态管理，代码更易维护和扩展。旧版本已移至 `oldweb.disabled/` 文件夹，仅保留用于参考。
 
 ### Q: 如何切换到 Vue 3 版本？
 A: 进入 `frontend` 目录，运行 `npm install` 和 `npm run dev` 即可。
