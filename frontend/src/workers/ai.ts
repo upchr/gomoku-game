@@ -431,7 +431,7 @@ export class GomokuAI {
     };
   }
   
-  // 检查是否可以使用开局库
+  // 检查是否可以使用开局库（修复：确保防守优先级最高）
   checkOpeningBook(board: number[][], player: Player): Position | null {
     const totalPieces = this.countPieces(board);
     
@@ -450,28 +450,38 @@ export class GomokuAI {
       }
     }
     
-    // 开局阶段（前10步），尝试找定式，但要先检查威胁
+    // 开局阶段（前10步），必须先检查威胁，确保防守优先
     if (totalPieces < 10) {
       const opponent = 3 - player;
       
       // 优先检查对手的威胁（活四、冲四、活三）
       const candidates = this.getCandidateMoves(board);
+      
+      // 按威胁程度排序候选点
+      const threatMoves: Array<{ move: Position; score: number; type: string }> = [];
       for (const move of candidates) {
         // 检查对手在这个位置的威胁（不计算组合棋型）
         board[move.row][move.col] = opponent;
         const opponentScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
         board[move.row][move.col] = 0;
         
-        // 如果对手有活四或冲四，必须防守
         if (opponentScore >= this.patternScores.LIVE_FOUR) {
-          console.log('AI: 开局检测到对手活四，紧急防守', move);
-          return move;
+          threatMoves.push({ move, score: opponentScore, type: 'LIVE_FOUR' });
+        } else if (opponentScore >= this.patternScores.RUSH_FOUR) {
+          threatMoves.push({ move, score: opponentScore, type: 'RUSH_FOUR' });
+        } else if (opponentScore >= this.patternScores.LIVE_THREE) {
+          threatMoves.push({ move, score: opponentScore, type: 'LIVE_THREE' });
         }
-        // 如果对手有活三，也需要防守
-        if (opponentScore >= this.patternScores.LIVE_THREE) {
-          console.log('AI: 开局检测到对手活三，防守', move);
-          return move;
-        }
+      }
+      
+      // 按威胁程度排序（活四 > 冲四 > 活三）
+      threatMoves.sort((a, b) => b.score - a.score);
+      
+      // 如果有威胁，立即防守（最高优先级）
+      if (threatMoves.length > 0) {
+        const topThreat = threatMoves[0];
+        console.log(`AI: 开局检测到对手${topThreat.type}，紧急防守`, topThreat.move);
+        return topThreat.move;
       }
       
       // 如果没有威胁，尝试使用定式
@@ -679,39 +689,23 @@ export class GomokuAI {
       // 重置历史启发表
       this.historyTable = this.createArray2D(0);
       
-      // 检查开局库（前10步）
+      // 检查开局库（前10步，包括威胁检测）
       const bookMove = this.checkOpeningBook(board, player);
       if (bookMove) {
-        console.log('AI: 使用开局库', bookMove);
+        console.log('AI: 开局库/防守', bookMove);
         return bookMove;
       }
       
-      // 终局优化：棋子超过70%时，使用更深搜索
+      // 终局优化：棋子超过70%时，使用更强大的终局检测
       if (complexity > 0.7) {
+        const endgameResult = this.checkEndgameWin(board, player);
+        if (endgameResult) {
+          console.log('AI: 终局检测到必胜/必防走法', endgameResult);
+          return endgameResult;
+        }
+        
         this.depthConfig.max += 1;
         console.log('AI: 终局阶段，增加搜索深度', { newMax: this.depthConfig.max });
-      }
-
-      // 终局多重威胁检测
-      if (complexity > 0.7) {
-        const multipleThreats = this.detectMultipleThreats(board, player);
-        if (multipleThreats.length > 0) {
-          console.log('AI: 终局检测到多重威胁', multipleThreats.slice(0, 5));
-          // 如果有必胜走法（活四或冲四），直接返回
-          const winningThreat = multipleThreats.find(t =>
-            t.attackScore >= this.patternScores.LIVE_FOUR || t.attackScore >= this.patternScores.RUSH_FOUR
-          );
-          if (winningThreat) {
-            console.log('AI: 终局找到必胜走法', winningThreat);
-            return winningThreat;
-          }
-          // 如果有必须防守的走法，优先返回
-          const defenseThreat = multipleThreats.find(t => t.defenseScore >= this.patternScores.LIVE_FOUR);
-          if (defenseThreat) {
-            console.log('AI: 终局必须防守', defenseThreat);
-            return defenseThreat;
-          }
-        }
       }
 
       // 调试：检查对手威胁
@@ -946,30 +940,6 @@ export class GomokuAI {
     // 快速评估排序
     this.evaluateMoves(moves, board, player);
     
-    // 关键修复：检查是否有必须防守的走法（对手有活四或冲四）
-    const opponent = 3 - player;
-    let criticalDefenseMove: Move | null = null;
-    
-    for (const move of moves) {
-      board[move.row][move.col] = opponent;
-      // 不计算组合棋型，避免误判双活三等为必须防守
-      const opponentScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
-      board[move.row][move.col] = 0;
-      
-      // 如果对手有活四，必须防守
-      if (opponentScore >= this.patternScores.LIVE_FOUR) {
-        criticalDefenseMove = move;
-        break;
-      }
-    }
-    
-    // 如果有必须防守的走法，优先考虑防守
-    if (criticalDefenseMove) {
-      // 将防守走法移到最前面
-      moves.splice(moves.indexOf(criticalDefenseMove), 1);
-      moves.unshift(criticalDefenseMove);
-    }
-    
     let bestMove: Position | null = null;
     let bestScore = -Infinity;
     let alpha = -Infinity;
@@ -1139,10 +1109,10 @@ export class GomokuAI {
   
   // ========== 走法生成与排序 ==========
   
-  // 获取候选走法（曼哈顿距离 ≤ 2）
+  // 获取候选走法（优化版：使用空间局部性优化 + 距离平方比较）
   getCandidateMoves(board: number[][]): Move[] {
     const moves: Move[] = [];
-    const visited = new Set<number>();
+    const visited = new Uint8Array(this.size * this.size); // 使用 TypedArray 代替 Set，性能更高
     
     // 使用缓存的棋子数量（如果存在）
     const pieceCount = this.searchStats?.pieceCount || this.countPieces(board);
@@ -1153,48 +1123,65 @@ export class GomokuAI {
     const maxMoves = this.size === 19 ? (isEndgame ? 100 : 80) : (isEndgame ? 80 : 60);
     const searchDistance = isEndgame ? 3 : 2; // 终局扩大搜索范围
     
+    // 优化：预先计算距离平方，避免重复计算
+    const maxDistSq = searchDistance * searchDistance;
+    
+    // 优化：预先收集棋子位置，避免重复扫描
+    const piecePositions: Position[] = [];
     for (let i = 0; i < this.size; i++) {
       for (let j = 0; j < this.size; j++) {
         if (board[i][j] !== 0) {
-          // 检查周围的空位（根据阶段调整搜索距离）
-          for (let di = -searchDistance; di <= searchDistance; di++) {
-            for (let dj = -searchDistance; dj <= searchDistance; dj++) {
-              // 终局使用欧几里得距离，否则使用曼哈顿距离
-              const distance = isEndgame 
-                ? Math.sqrt(di*di + dj*dj) 
-                : Math.abs(di) + Math.abs(dj);
+          piecePositions.push({ row: i, col: j });
+        }
+      }
+    }
+    
+    // 如果棋盘为空，返回中心点
+    if (piecePositions.length === 0) {
+      const center = Math.floor(this.size / 2);
+      moves.push({ row: center, col: center });
+      return moves;
+    }
+    
+    // 只扫描棋子周围的空位
+    for (const piece of piecePositions) {
+      // 如果已经收集到足够候选点，提前退出
+      if (moves.length >= maxMoves) {
+        break;
+      }
+      
+      // 检查周围的空位（根据阶段调整搜索距离）
+      for (let di = -searchDistance; di <= searchDistance; di++) {
+        for (let dj = -searchDistance; dj <= searchDistance; dj++) {
+          // 优化：使用距离平方比较，避免开方运算
+          const distSq = di * di + dj * dj;
+          if (distSq > maxDistSq) continue;
+          
+          // 终局使用欧几里得距离，否则使用曼哈顿距离
+          const distance = isEndgame 
+            ? Math.sqrt(distSq) 
+            : Math.abs(di) + Math.abs(dj);
 
-              if (distance > searchDistance) continue;
+          if (distance > searchDistance) continue;
 
-              const ni = i + di;
-              const nj = j + dj;
-              const key = ni * this.size + nj;
+          const ni = piece.row + di;
+          const nj = piece.col + dj;
+          const key = ni * this.size + nj;
 
-              // 检查边界和是否已访问
-              if (ni >= 0 && ni < this.size && nj >= 0 && nj < this.size &&
-                  board[ni][nj] === 0 && !visited.has(key)) {
-                visited.add(key);
-                moves.push({ row: ni, col: nj });
+          // 检查边界和是否已访问
+          if (ni >= 0 && ni < this.size && nj >= 0 && nj < this.size &&
+              board[ni][nj] === 0 && visited[key] === 0) {
+            visited[key] = 1;
+            moves.push({ row: ni, col: nj });
 
-                // 早期退出：如果候选点已经够多，停止搜索
-                if (moves.length >= maxMoves) {
-                  break;
-                }
-              }
+            // 早期退出：如果候选点已经够多，停止搜索
+            if (moves.length >= maxMoves) {
+              break;
             }
-            if (moves.length >= maxMoves) break;
           }
-          if (moves.length >= maxMoves) break;
         }
         if (moves.length >= maxMoves) break;
       }
-      if (moves.length >= maxMoves) break;
-    }
-
-    // 如果棋盘为空，返回中心点
-    if (moves.length === 0) {
-      const center = Math.floor(this.size / 2);
-      moves.push({ row: center, col: center });
     }
 
     return moves;
@@ -1204,6 +1191,9 @@ export class GomokuAI {
   evaluateMoves(moves: Move[], board: number[][], player: Player): void {
     const opponent = 3 - player;
     let highDefenseMoves: Move[] = []; // 高防守权重的走法
+    let highAttackMoves: Move[] = []; // 高攻击优势的走法
+    let winningMove: Move | null = null; // 必胜走法（连五）
+    let criticalDefenseMove: Move | null = null; // 必须防守的走法（对手活四）
 
     // 获取动态防守权重（基于局势）
     const dynamicDefenseMultiplier = this.getDynamicDefenseMultiplier(board, player);
@@ -1219,36 +1209,88 @@ export class GomokuAI {
       const defenseScore = this.evaluatePoint(board, move.row, move.col, opponent, false);
       board[move.row][move.col] = 0;
 
-      // 基础分数：进攻 - 防守（防守分数乘以动态权重）
-      move.score = attackScore - (defenseScore * dynamicDefenseMultiplier);
       move.attackScore = attackScore;
       move.defenseScore = defenseScore;
 
-      // 关键修复：对高威胁棋型给予额外防守权重
-      // 如果对手有活四（LIVE_FOUR），必须防守，权重最高
-      if (defenseScore >= this.patternScores.LIVE_FOUR) {
-        move.score! += 300000;  // 强制防守
-        highDefenseMoves.push({ ...move, reason: 'LIVE_FOUR' });
+      // 优先级1：检查自己是否能连五（直接获胜）
+      if (attackScore >= this.patternScores.FIVE) {
+        winningMove = move;
+        console.log('AI: 检测到必胜走法（连五）', move);
+        break; // 找到必胜走法，立即退出
       }
+
+      // 优先级2：检查对手是否有活四（必须防守）
+      if (defenseScore >= this.patternScores.LIVE_FOUR) {
+        criticalDefenseMove = move;
+        console.log('AI: 检测到对手活四威胁，必须防守', move);
+      }
+
+      // 优先级3：攻击优势检测
+      // 如果自己有活四（LIVE_FOUR），强攻
+      if (attackScore >= this.patternScores.LIVE_FOUR) {
+        move.score = attackScore + 1000000; // 超高优先级
+        highAttackMoves.push({ ...move, reason: 'LIVE_FOUR' });
+      }
+      // 如果自己有冲四（RUSH_FOUR），强攻
+      else if (attackScore >= this.patternScores.RUSH_FOUR) {
+        move.score = attackScore + 80000; // 进攻 + 防守权重
+        highAttackMoves.push({ ...move, reason: 'RUSH_FOUR' });
+      }
+      // 如果自己有活三（LIVE_THREE），进攻
+      else if (attackScore >= this.patternScores.LIVE_THREE) {
+        move.score = attackScore + 15000; // 进攻 + 防守权重
+        highAttackMoves.push({ ...move, reason: 'LIVE_THREE' });
+      }
+      // 优先级4：其他威胁检测
       // 如果对手有冲四（RUSH_FOUR），需要防守
       else if (defenseScore >= this.patternScores.RUSH_FOUR) {
-        move.score! += 80000;
+        move.score = attackScore + 80000; // 进攻 + 防守权重
         highDefenseMoves.push({ ...move, reason: 'RUSH_FOUR' });
       }
       // 如果对手有活三（LIVE_THREE），需要防守
       else if (defenseScore >= this.patternScores.LIVE_THREE) {
-        move.score! += 15000;
+        move.score = attackScore + 15000; // 进攻 + 防守权重
         highDefenseMoves.push({ ...move, reason: 'LIVE_THREE' });
+      }
+      // 其他情况：正常评估
+      else {
+        // 基础分数：进攻 - 防守（防守分数乘以动态权重）
+        move.score = attackScore - (defenseScore * dynamicDefenseMultiplier);
       }
 
       // 加上位置权重
-      move.score! += this.positionWeight[move.row][move.col];
+      move.score += this.positionWeight[move.row][move.col];
     }
 
-    // 如果有高防守权重的走法，输出调试信息
+    // 如果找到必胜走法（连五），直接返回
+    if (winningMove) {
+      moves.length = 0;
+      moves.push(winningMove);
+      return;
+    }
+
+    // 如果找到必须防守的走法（对手活四），将其移到最前面
+    if (criticalDefenseMove) {
+      const index = moves.indexOf(criticalDefenseMove);
+      if (index > -1) {
+        moves.splice(index, 1);
+        moves.unshift(criticalDefenseMove);
+        // 提高防守走法的评分，确保它被优先选择
+        criticalDefenseMove.score = this.patternScores.LIVE_FOUR + 1000000; // 超高优先级
+      }
+    }
+
+    // 如果检测到对手威胁，输出调试信息（注意：检测到威胁不等于选择防守）
     if (highDefenseMoves.length > 0) {
-      console.log('AI: 检测到高防守权重走法', highDefenseMoves.map(m => ({
+      console.log('AI: 检测到对手威胁', highDefenseMoves.map(m => ({
         row: m.row, col: m.col, reason: (m as any).reason, defenseScore: m.defenseScore, finalScore: m.score
+      })));
+    }
+
+    // 如果检测到攻击优势，输出调试信息
+    if (highAttackMoves.length > 0) {
+      console.log('AI: 检测到攻击优势', highAttackMoves.map(m => ({
+        row: m.row, col: m.col, reason: (m as any).reason, attackScore: m.attackScore, finalScore: m.score
       })));
     }
 
@@ -1305,7 +1347,7 @@ export class GomokuAI {
     return score;
   }
   
-  // 评估单个点
+  // 评估单个点（优化版：添加提前终止）
   evaluatePoint(board: number[][], row: number, col: number, player: Player, includeCombos: boolean = true): number {
     let score = 0;
     const patterns: Array<{ count: number; open: number; score: number }> = [];
@@ -1315,6 +1357,11 @@ export class GomokuAI {
       const patternScore = this.getPatternScore(result.count, result.open);
       score += patternScore;
       patterns.push({ count: result.count, open: result.open, score: patternScore });
+      
+      // 优化：如果已经找到连五，提前返回
+      if (result.count >= 5) {
+        return this.patternScores.FIVE;
+      }
     }
 
     // 组合棋型加分（只在评估己方棋子时计算）
@@ -1561,6 +1608,94 @@ export class GomokuAI {
   cleanTranspositionTable(): void {
     // LRU 缓存会自动管理大小，不需要手动清理
     // 这里保留函数接口以保持兼容性
+  }
+  
+  // ========== 终局优化 ==========
+  
+  /**
+   * 终局检测：检查必胜或必防走法
+   * 在终局阶段（棋子超过70%），使用更精确的检测
+   * 优化：复用 getCandidateMoves 的结果，避免重复计算
+   */
+  checkEndgameWin(board: number[][], player: Player): Position | null {
+    const opponent = 3 - player;
+    
+    // 优化：复用 getCandidateMoves 的结果，而不是重新收集所有空位
+    // 终局阶段候选点已经覆盖了所有有意义的空位
+    const candidateMoves = this.getCandidateMoves(board);
+    
+    // 优先级1：检查必胜走法（自己能连五）
+    for (const move of candidateMoves) {
+      board[move.row][move.col] = player;
+      if (this.checkWin(board, player)) {
+        board[move.row][move.col] = 0;
+        console.log('AI: 终局检测到必胜走法（连五）', move);
+        return move;
+      }
+      board[move.row][move.col] = 0;
+    }
+    
+    // 优先级2：检查对手必胜走法（必须防守）
+    for (const move of candidateMoves) {
+      board[move.row][move.col] = opponent;
+      if (this.checkWin(board, opponent)) {
+        board[move.row][move.col] = 0;
+        console.log('AI: 终局检测到对手必胜走法，必须防守', move);
+        return move;
+      }
+      board[move.row][move.col] = 0;
+    }
+    
+    // 优先级3：检查活四（必胜）
+    for (const move of candidateMoves) {
+      board[move.row][move.col] = player;
+      const score = this.evaluatePoint(board, move.row, move.col, player, false);
+      board[move.row][move.col] = 0;
+      
+      if (score >= this.patternScores.LIVE_FOUR) {
+        console.log('AI: 终局检测到活四（必胜）', move);
+        return move;
+      }
+    }
+    
+    // 优先级4：检查对手活四（必须防守）
+    for (const move of candidateMoves) {
+      board[move.row][move.col] = opponent;
+      const score = this.evaluatePoint(board, move.row, move.col, opponent, false);
+      board[move.row][move.col] = 0;
+      
+      if (score >= this.patternScores.LIVE_FOUR) {
+        console.log('AI: 终局检测到对手活四，必须防守', move);
+        return move;
+      }
+    }
+    
+    // 优先级5：检查冲四+活三（强攻）
+    for (const move of candidateMoves) {
+      board[move.row][move.col] = player;
+      const score = this.evaluatePoint(board, move.row, move.col, player, true);
+      board[move.row][move.col] = 0;
+      
+      // 如果有冲四+活三，强攻
+      if (score >= this.patternScores.RUSH_FOUR + this.patternScores.LIVE_THREE) {
+        console.log('AI: 终局检测到冲四+活三（强攻）', move);
+        return move;
+      }
+    }
+    
+    // 优先级6：检查对手冲四+活三（强防）
+    for (const move of candidateMoves) {
+      board[move.row][move.col] = opponent;
+      const score = this.evaluatePoint(board, move.row, move.col, opponent, true);
+      board[move.row][move.col] = 0;
+      
+      if (score >= this.patternScores.RUSH_FOUR + this.patternScores.LIVE_THREE) {
+        console.log('AI: 终局检测到对手冲四+活三，强防', move);
+        return move;
+      }
+    }
+    
+    return null;
   }
 }
 
