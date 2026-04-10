@@ -1,6 +1,7 @@
 services:
   # 前端服务
   frontend:
+    image: chrplus/gomoku-frontend:latest
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -8,14 +9,15 @@ services:
     container_name: gomoku-frontend
     ports:
       - "3000:80"
-    depends_on:
-      - backend
+#    depends_on:
+#      - backend
     networks:
       - gomoku-network
     restart: unless-stopped
 
   # 后端服务
   backend:
+    image: chrplus/gomoku-backend:latest
     build:
       context: ..
       dockerfile: docker/Dockerfile
