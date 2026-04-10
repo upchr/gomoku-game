@@ -35,11 +35,25 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      }
+    }
   },
 
   preview: {
     host: '0.0.0.0',
-    port: 3000
+    port: 3000,
+    proxy: {
+      '/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      }
+    }
   }
 });
