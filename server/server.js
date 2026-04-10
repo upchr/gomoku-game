@@ -330,7 +330,13 @@ function handleJoinRoom(ws, data) {
     roomCode,
     userId,
     color: 2,
-    opponent: room.players[0],
+    opponent: room.players[0] ? {
+      name: room.players[0].name,
+      time: room.players[0].time,
+      moves: room.players[0].moves,
+      undoLeft: room.players[0].undoLeft,
+      color: room.players[0].color
+    } : null,
     gameTime: room.gameTime,
     boardSize: room.boardSize,
     matchMode: room.matchMode,
@@ -340,7 +346,13 @@ function handleJoinRoom(ws, data) {
   if (room.players[0] && room.players[0].ws) {
     send(room.players[0].ws, {
       type: 'opponent_joined',
-      opponent: room.players[1],
+      opponent: room.players[1] ? {
+        name: room.players[1].name,
+        time: room.players[1].time,
+        moves: room.players[1].moves,
+        undoLeft: room.players[1].undoLeft,
+        color: room.players[1].color
+      } : null,
       gameTime: room.gameTime,
       boardSize: room.boardSize,
       matchMode: room.matchMode,
