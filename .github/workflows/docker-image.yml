@@ -1,0 +1,68 @@
+name: Build and Push Multi-Arch Images to Aliyun ACR and Docker Hub
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+env:
+  ACR_REGISTRY: registry.cn-beijing.aliyuncs.com
+  DOCKERHUB_USERNAME: chrplus
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: frontend
+            acr_repo: base-chr/gomoku-frontend
+            dockerhub_repo: gomoku-frontend
+            target: frontend
+            dockerfile: ./docker/Dockerfile
+          - name: backend
+            acr_repo: base-chr/gomoku-backend
+            dockerhub_repo: gomoku-backend
+            target: backend
+            dockerfile: ./docker/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_REGISTRY }}
+          username: ${{ secrets.ALIYUN_ACR_USERNAME }}
+          password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service.name }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.service.dockerfile }}
+          target: ${{ matrix.service.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VERSION=${{ env.TAG }}
+          tags: |
+            ${{ env.ACR_REGISTRY }}/${{ matrix.service.acr_repo }}:${{ env.TAG }}
+            ${{ env.ACR_REGISTRY }}/${{ matrix.service.acr_repo }}:latest
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service.dockerhub_repo }}:${{ env.TAG }}
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service.dockerhub_repo }}:latest
