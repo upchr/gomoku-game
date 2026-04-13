@@ -637,7 +637,7 @@ function handlePlayAgain(ws) {
     return;
   }
 
-  // 修复：找到当前玩家在 players 数组中的实际索引，而不是使用 color-1
+  // 修复：找到当前玩家在 players 数组中的实际索引
   const playerIndex = room.players.findIndex(p => p && p.ws === ws);
   if (playerIndex === -1) {
     send(ws, { type: 'error', message: '未找到玩家信息' });
@@ -661,7 +661,8 @@ function handlePlayAgain(ws) {
       // 比赛进行中，下一局：增加局数
       room.currentRound++;
     }
-    startNewGame(room);
+    // 传入 matchEnded 参数，让 startNewGame 知道是否比赛结束
+    startNewGame(room, matchEnded);
   }
 
   // 通知双方准备状态
@@ -674,7 +675,7 @@ function handlePlayAgain(ws) {
 }
 
 // 开始新游戏
-function startNewGame(room) {
+function startNewGame(room, matchEnded = false) {
   // 重置棋盘
   initBoard(room);
   room.moves = [];
@@ -688,6 +689,7 @@ function startNewGame(room) {
     if (p) {
       p.time = room.gameTime;
       p.moves = 0;
+      p.undoLeft = room.undoLimit;  // 修复 Bug1: 重置悔棋次数
     }
   });
 
@@ -720,7 +722,8 @@ function startNewGame(room) {
       id: p.id
     } : null),
     matchWins: room.matchWins,
-    matchMode: room.matchMode
+    matchMode: room.matchMode,
+    matchEnded: matchEnded  // 修复 Bug3: 添加 matchEnded 字段
   });
 }
 
@@ -820,12 +823,14 @@ function handleQuickMsg(ws, data) {
   const room = rooms.get(roomCode);
   if (!room) return;
 
-  // 修复：通过 WebSocket 连接对比来找到实际对手，而不是使用 color 值作为数组索引
-  // 这样可以确保无论 color 值如何变化（第二局交换先后手后），都能正确发送给对手
+  // 修复：通过 WebSocket 连接对比来找到实际对手
   const opponent = room.players.find(p => p && p.ws && p.ws !== ws);
 
-  if (opponent && opponent.ws) {
-    send(opponent.ws, { type: 'quick_msg', message: data.message, playerName: room.players[color - 1].name });
+  // 修复 Bug2: 通过 ws 找到发送者，而不是用 color 作为索引（交换先后手后 color 会变）
+  const sender = room.players.find(p => p && p.ws === ws);
+
+  if (opponent && opponent.ws && sender) {
+    send(opponent.ws, { type: 'quick_msg', message: data.message, playerName: sender.name });
   }
 }
 

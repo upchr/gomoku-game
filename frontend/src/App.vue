@@ -674,6 +674,11 @@ function setupWSMessageHandler() {
           gameStore.doPlacePiece(wr, wc, data.winner as Player);
         }
         gameStore.endGame((data.winner || 0) as Player | 0);
+        
+        // 根据比分计算比赛是否结束
+        const targetWins = Math.ceil(gameStore.matchMode / 2);
+        gameStore.matchEnded = gameStore.matchWins[1] >= targetWins || gameStore.matchWins[2] >= targetWins;
+        
         showWinModal.value = true;
         isReady.value = false;
         opponentReady.value = false;
@@ -682,7 +687,7 @@ function setupWSMessageHandler() {
         boardReadyStatusVisible.value = true;
 
         // 检查比赛是否结束，如果结束则清理房间信息
-        if (gameStore.matchWins[1] >= Math.ceil(gameStore.matchMode / 2) || gameStore.matchWins[2] >= Math.ceil(gameStore.matchMode / 2)) {
+        if (gameStore.matchEnded) {
           wsStore.clearRoomInfo();
         }
         break;
@@ -910,6 +915,10 @@ function setupWSMessageHandler() {
         }
         if (data.matchWins) {
           gameStore.matchWins = data.matchWins;
+        }
+        // 修复 Bug3: 使用服务器传来的 matchEnded 字段，而不是根据比分重新计算
+        if (data.matchEnded !== undefined) {
+          gameStore.matchEnded = data.matchEnded;
         }
         if (data.players) {
           const myPlayer = data.players.find((p: any) => p && p.id === gameStore.myUserId);
